@@ -18,6 +18,9 @@ pub(crate) struct Settings {
     theme: ThemePreference,
     /// List of paths to ignore (might be cloud drives, etc.
     ignored_path: Vec<PathBuf>,
+    /// Ignore common cloud folders like Dropbox, OneDrive, Google Drive, iCloud, etc.
+    #[serde(default = "Settings::default_ignore_cloud_mounts")]
+    pub(crate) ignore_cloud_mounts: bool,
     /// Threshold for big files (in bytes). Files smaller than this will be displayed as a single block.
     pub(crate) big_file_threshold: u64,
 }
@@ -32,6 +35,7 @@ impl Default for Settings {
                 color_scheme: Egui,
                 theme: ThemePreference::System,
                 ignored_path: Vec::new(),
+                ignore_cloud_mounts: true,
                 big_file_threshold: BIG_FILE_THRESHOLD,
             })
     }
@@ -67,7 +71,15 @@ impl Settings {
     }
 
     pub(crate) fn is_path_ignored(&self, path: &PathBuf) -> bool {
-        self.ignored_path.contains(path)
+        if self.ignored_path.contains(path) {
+            return true;
+        }
+        if self.ignore_cloud_mounts {
+            if Self::is_common_cloud_path(path.as_path()) {
+                return true;
+            }
+        }
+        false
     }
 
     pub(crate) fn ignored_paths_mut(&mut self) -> &mut Vec<PathBuf> {
@@ -96,6 +108,10 @@ impl Settings {
         Ok(())
     }
 
+    fn default_ignore_cloud_mounts() -> bool {
+        true
+    }
+
     fn settings_folder() -> Option<PathBuf> {
         home::home_dir().map(|mut home| {
             home.push(".disk-mosaic");
@@ -108,6 +124,59 @@ impl Settings {
             settings_folder.push("settings.json");
             settings_folder
         })
+    }
+
+    fn is_common_cloud_path(path: &std::path::Path) -> bool {
+        // Linux absolute mount points that often include cloud/special mounts
+        #[cfg(target_os = "linux")]
+        {
+            if path.starts_with("/run/user")
+                || path.starts_with("/media")
+                || path.starts_with("/mnt")
+                || path.starts_with("/snap")
+            {
+                return true;
+            }
+        }
+        // On macOS and Windows, many cloud folders are under HOME. We check the first component
+        // after HOME against a small set of known names without allocating vectors.
+        if let Some(home) = home::home_dir() {
+            if let Ok(stripped) = path.strip_prefix(&home) {
+                // iCloud special case is under ~/Library/Mobile Documents/com~apple~CloudDocs
+                #[cfg(target_os = "macos")]
+                {
+                    let mut comps = stripped.components();
+                    if matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "Library")
+                        && matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "Mobile Documents")
+                        && matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "com~apple~CloudDocs")
+                    {
+                        return true;
+                    }
+                }
+                // Check top-level directory under HOME for common cloud providers
+                if let Some(first) = stripped.components().next() {
+                    if let std::path::Component::Normal(name) = first {
+                        if let Some(s) = name.to_str() {
+                            // Match a small set of known names
+                            return matches!(
+                                s,
+                                "Dropbox"
+                                    | "OneDrive"
+                                    | "OneDrive - Personal"
+                                    | "Google Drive"
+                                    | "Google Drive (Shared)"
+                                    | "Box"
+                                    | "Nextcloud"
+                                    | "SynologyDrive"
+                                    | "pCloud Drive"
+                                    | "MEGA"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        false
     }
 }
 

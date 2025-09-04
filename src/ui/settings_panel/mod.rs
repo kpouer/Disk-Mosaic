@@ -107,6 +107,12 @@ impl<'a> SettingsDialog<'a> {
                             settings.reset_big_file_threshold();
                         }
                         ui.end_row();
+                        ui.label("Ignore common cloud folders:");
+                        let chk = ui.checkbox(&mut settings.ignore_cloud_mounts, "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
+                        if chk.changed() {
+                            settings.dirty = true;
+                        }
+                        ui.end_row();
                     });
                 let modified = SearchFolderPanel::with_title(
                     "ignored_folders",
