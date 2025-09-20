@@ -42,19 +42,19 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn color_scheme(&self) -> ColorScheme {
+    pub const fn color_scheme(&self) -> ColorScheme {
         self.color_scheme
     }
 
-    pub fn color_scheme_mut(&mut self) -> &mut ColorScheme {
+    pub const fn color_scheme_mut(&mut self) -> &mut ColorScheme {
         &mut self.color_scheme
     }
 
-    pub(crate) fn theme(&self) -> ThemePreference {
+    pub(crate) const fn theme(&self) -> ThemePreference {
         self.theme
     }
 
-    pub(crate) fn set_theme(&mut self, theme: ThemePreference) {
+    pub(crate) const fn set_theme(&mut self, theme: ThemePreference) {
         self.theme = theme;
         self.dirty = true;
     }
@@ -80,15 +80,15 @@ impl Settings {
         false
     }
 
-    pub(crate) fn ignored_paths_mut(&mut self) -> &mut Vec<PathBuf> {
+    pub(crate) const fn ignored_paths_mut(&mut self) -> &mut Vec<PathBuf> {
         &mut self.ignored_path
     }
 
-    pub(crate) fn big_file_threshold(&self) -> u64 {
+    pub(crate) const fn big_file_threshold(&self) -> u64 {
         self.big_file_threshold
     }
 
-    pub(crate) fn reset_big_file_threshold(&mut self) {
+    pub(crate) const fn reset_big_file_threshold(&mut self) {
         self.big_file_threshold = BIG_FILE_THRESHOLD;
         self.dirty = true;
     }
@@ -106,7 +106,7 @@ impl Settings {
         Ok(())
     }
 
-    fn default_ignore_cloud_mounts() -> bool {
+    const fn default_ignore_cloud_mounts() -> bool {
         true
     }
 

@@ -21,7 +21,7 @@ pub struct Task<'a> {
 }
 
 impl<'a> Task<'a> {
-    pub fn new(
+    pub const fn new(
         path: PathBuf,
         tx: &'a Sender<Message>,
         stopper: &'a Arc<AtomicBool>,

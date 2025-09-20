@@ -30,7 +30,7 @@ impl Default for Kind {
 }
 
 impl Kind {
-    pub fn get_image(&self) -> ImageSource<'_> {
+    pub const fn get_image(&self) -> ImageSource<'_> {
         match self {
             Kind::Dir(_) => include_image!("../assets/directory.svg"),
             Kind::File => include_image!("../assets/file.svg"),
