@@ -11,7 +11,6 @@ dependencies = [
  "egui_extras",
  "egui_solarized",
  "env_logger",
- "filesize",
  "home",
  "humansize",
  "log",
@@ -1266,15 +1265,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e6853b52649d4ac5c0bd02320cddc5ba956bdb407c4b75a2c6b75bf51500f8c"
 dependencies = [
  "simd-adler32",
-]
-
-[[package]]
-name = "filesize"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12d741e2415d4e2e5bd1c1d00409d1a8865a57892c2d689b504365655d237d43"
-dependencies = [
- "winapi",
 ]
 
 [[package]]
