@@ -170,10 +170,10 @@ impl<'a> Task<'a> {
             }
             file_result.size += small_file_data.size;
         }
-        if file_result.file_count != 0 {
-            if let Err(e) = sender.send(Message::DirectoryScanDone(file_result)) {
-                warn!("Received dropped {e}");
-            }
+        if file_result.file_count != 0
+            && let Err(e) = sender.send(Message::DirectoryScanDone(file_result))
+        {
+            warn!("Received dropped {e}");
         }
         Ok(children)
     }

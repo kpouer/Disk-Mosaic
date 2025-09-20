@@ -27,7 +27,7 @@ impl From<&Disk> for Storage {
 }
 
 impl Storage {
-    pub(crate) fn icon(&self) -> ImageSource {
+    pub(crate) fn icon(&self) -> ImageSource<'_> {
         match self.kind {
             DiskKind::HDD => include_image!("../../../assets/hdd.svg"),
             DiskKind::SSD => include_image!("../../../assets/ssd.svg"),

@@ -74,10 +74,8 @@ impl Settings {
         if self.ignored_path.contains(path) {
             return true;
         }
-        if self.ignore_cloud_mounts {
-            if Self::is_common_cloud_path(path.as_path()) {
-                return true;
-            }
+        if self.ignore_cloud_mounts && Self::is_common_cloud_path(path.as_path()) {
+            return true;
         }
         false
     }
@@ -97,12 +95,12 @@ impl Settings {
 
     pub(crate) fn save(&self) -> Result<(), std::io::Error> {
         info!("save");
-        if self.dirty {
-            if let Some(settings_folder) = Self::settings_folder() {
-                std::fs::create_dir_all(settings_folder)?;
-                if let Some(settings_file) = Self::settings_file() {
-                    serde_json::to_writer(File::create(settings_file)?, self)?;
-                }
+        if self.dirty
+            && let Some(settings_folder) = Self::settings_folder()
+        {
+            std::fs::create_dir_all(settings_folder)?;
+            if let Some(settings_file) = Self::settings_file() {
+                serde_json::to_writer(File::create(settings_file)?, self)?;
             }
         }
         Ok(())
@@ -140,40 +138,39 @@ impl Settings {
         }
         // On macOS and Windows, many cloud folders are under HOME. We check the first component
         // after HOME against a small set of known names without allocating vectors.
-        if let Some(home) = home::home_dir() {
-            if let Ok(stripped) = path.strip_prefix(&home) {
-                // iCloud special case is under ~/Library/Mobile Documents/com~apple~CloudDocs
-                #[cfg(target_os = "macos")]
+        if let Some(home) = home::home_dir()
+            && let Ok(stripped) = path.strip_prefix(&home)
+        {
+            // iCloud special case is under ~/Library/Mobile Documents/com~apple~CloudDocs
+            #[cfg(target_os = "macos")]
+            {
+                let mut comps = stripped.components();
+                if matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "Library")
+                    && matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "Mobile Documents")
+                    && matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "com~apple~CloudDocs")
                 {
-                    let mut comps = stripped.components();
-                    if matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "Library")
-                        && matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "Mobile Documents")
-                        && matches!(comps.next(), Some(std::path::Component::Normal(s)) if s == "com~apple~CloudDocs")
-                    {
-                        return true;
-                    }
+                    return true;
                 }
-                // Check top-level directory under HOME for common cloud providers
-                if let Some(first) = stripped.components().next() {
-                    if let std::path::Component::Normal(name) = first {
-                        if let Some(s) = name.to_str() {
-                            // Match a small set of known names
-                            return matches!(
-                                s,
-                                "Dropbox"
-                                    | "OneDrive"
-                                    | "OneDrive - Personal"
-                                    | "Google Drive"
-                                    | "Google Drive (Shared)"
-                                    | "Box"
-                                    | "Nextcloud"
-                                    | "SynologyDrive"
-                                    | "pCloud Drive"
-                                    | "MEGA"
-                            );
-                        }
-                    }
-                }
+            }
+            // Check top-level directory under HOME for common cloud providers
+            if let Some(first) = stripped.components().next()
+                && let std::path::Component::Normal(name) = first
+                && let Some(s) = name.to_str()
+            {
+                // Match a small set of known names
+                return matches!(
+                    s,
+                    "Dropbox"
+                        | "OneDrive"
+                        | "OneDrive - Personal"
+                        | "Google Drive"
+                        | "Google Drive (Shared)"
+                        | "Box"
+                        | "Nextcloud"
+                        | "SynologyDrive"
+                        | "pCloud Drive"
+                        | "MEGA"
+                );
             }
         }
         false

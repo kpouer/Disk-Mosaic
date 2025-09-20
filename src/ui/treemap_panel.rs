@@ -41,59 +41,59 @@ impl<'a> TreeMapPanel<'a> {
         for item in self.analysis_result.data_stack[1..].iter() {
             full_path.push(&item.name);
         }
-        if let Some(current_data) = self.analysis_result.data_stack.last_mut() {
-            if let Kind::Dir(children) = &mut current_data.kind {
-                TreemapLayout::new().layout_items(children, rect);
-                children
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, data)| data.bounds.w > 0.0 && data.bounds.h > 0.0)
-                    .for_each(|(index, data)| {
-                        let mut show_context_menu = false;
-                        let mut data_widget = DataWidget::new(data);
-                        let response = data_widget.ui(ui);
-                        let context_menu_opened = response.context_menu_opened();
-                        if !context_menu_opened {
-                            if response.double_clicked() && matches!(data.kind, Kind::Dir(_)) {
-                                clicked_data_index = Some(index);
-                            } else if response.secondary_clicked() {
-                                show_context_menu = true;
+        if let Some(current_data) = self.analysis_result.data_stack.last_mut()
+            && let Kind::Dir(children) = &mut current_data.kind
+        {
+            TreemapLayout::new().layout_items(children, rect);
+            children
+                .iter()
+                .enumerate()
+                .filter(|(_, data)| data.bounds.w > 0.0 && data.bounds.h > 0.0)
+                .for_each(|(index, data)| {
+                    let mut show_context_menu = false;
+                    let mut data_widget = DataWidget::new(data);
+                    let response = data_widget.ui(ui);
+                    let context_menu_opened = response.context_menu_opened();
+                    if !context_menu_opened {
+                        if response.double_clicked() && matches!(data.kind, Kind::Dir(_)) {
+                            clicked_data_index = Some(index);
+                        } else if response.secondary_clicked() {
+                            show_context_menu = true;
+                        }
+                    }
+                    if data_widget.need_tooltip && response.hovered() {
+                        Tooltip::for_widget(&response).at_pointer().show(|ui| {
+                            ui.heading(&data.name);
+                            ui.separator();
+                            ui.add(
+                                Label::new(format!(
+                                    "Size: {}",
+                                    humansize::format_size(data.size() as u64, DECIMAL)
+                                ))
+                                .wrap_mode(TextWrapMode::Extend),
+                            );
+                        });
+                    } else if context_menu_opened || show_context_menu {
+                        let mut full_path = full_path.clone();
+                        response.context_menu(|ui| {
+                            ui.heading(&data.name);
+                            ui.separator();
+                            if ui.button("Browse...").clicked() {
+                                full_path.push(&data.name);
+                                if let Err(e) = opener::reveal(full_path.clone()) {
+                                    error!("Error opening file: {e}")
+                                }
+                                ui.close_kind(UiKind::Menu);
                             }
-                        }
-                        if data_widget.need_tooltip && response.hovered() {
-                            Tooltip::for_widget(&response).at_pointer().show(|ui| {
-                                ui.heading(&data.name);
-                                ui.separator();
-                                ui.add(
-                                    Label::new(format!(
-                                        "Size: {}",
-                                        humansize::format_size(data.size() as u64, DECIMAL)
-                                    ))
-                                    .wrap_mode(TextWrapMode::Extend),
-                                );
-                            });
-                        } else if context_menu_opened || show_context_menu {
-                            let mut full_path = full_path.clone();
-                            response.context_menu(|ui| {
-                                ui.heading(&data.name);
-                                ui.separator();
-                                if ui.button("Browse...").clicked() {
-                                    full_path.push(&data.name);
-                                    if let Err(e) = opener::reveal(full_path.clone()) {
-                                        error!("Error opening file: {e}")
-                                    }
-                                    ui.close_kind(UiKind::Menu);
-                                }
-                                if ui.button("Ignore path").clicked() {
-                                    full_path.push(&data.name);
-                                    let mut settings = self.settings.lock().unwrap();
-                                    settings.add_ignored_path(full_path);
-                                    ui.close_kind(UiKind::Menu);
-                                }
-                            });
-                        }
-                    });
-            }
+                            if ui.button("Ignore path").clicked() {
+                                full_path.push(&data.name);
+                                let mut settings = self.settings.lock().unwrap();
+                                settings.add_ignored_path(full_path);
+                                ui.close_kind(UiKind::Menu);
+                            }
+                        });
+                    }
+                });
         }
 
         if let Some(clicked_index) = clicked_data_index {
@@ -118,10 +118,10 @@ impl<'a> TreeMapPanel<'a> {
         if delta > 0.0 && self.analysis_result.data_stack.len() >= 2 {
             let index = self.analysis_result.data_stack.len() - 2;
             self.analysis_result.selected_index(index);
-        } else if delta < 0.0 {
-            if let Some(hovered_index) = hovered_data_index {
-                self.zoom_in(hovered_index);
-            }
+        } else if delta < 0.0
+            && let Some(hovered_index) = hovered_data_index
+        {
+            self.zoom_in(hovered_index);
         }
     }
 
@@ -134,10 +134,10 @@ impl<'a> TreeMapPanel<'a> {
                 error!("The parent node is not a directory");
                 return;
             };
-            if let Some(data) = children.get(index) {
-                if !matches!(data.kind, Kind::Dir(_)) {
-                    return;
-                }
+            if let Some(data) = children.get(index)
+                && !matches!(data.kind, Kind::Dir(_))
+            {
+                return;
             }
             let taken_data = children.swap_remove(index); // swap_remove because it is faster than a normal remove
             self.analysis_result.data_stack.push(taken_data);
