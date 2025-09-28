@@ -86,6 +86,11 @@ impl<'a> TreeMapPanel<'a> {
                                 }
                                 ui.close_kind(UiKind::Menu);
                             }
+                            if ui.button("Copy parent path").clicked() {
+                                let text = full_path.to_string_lossy().to_string();
+                                ui.ctx().copy_text(text);
+                                ui.close_kind(UiKind::Menu);
+                            }
                             if ui.button("Copy full path").clicked() {
                                 let mut path = full_path.clone();
                                 path.push(&data.name);
@@ -98,11 +103,6 @@ impl<'a> TreeMapPanel<'a> {
                                 path.push(&data.name);
                                 let mut settings = self.settings.lock().unwrap();
                                 settings.add_ignored_path(path);
-                                ui.close_kind(UiKind::Menu);
-                            }
-                            if ui.button("Copy parent path").clicked() {
-                                let text = full_path.to_string_lossy().to_string();
-                                ui.ctx().copy_text(text);
                                 ui.close_kind(UiKind::Menu);
                             }
                         });
