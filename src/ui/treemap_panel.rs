@@ -74,21 +74,35 @@ impl<'a> TreeMapPanel<'a> {
                             );
                         });
                     } else if context_menu_opened || show_context_menu {
-                        let mut full_path = full_path.clone();
+                        let full_path = full_path.clone();
                         response.context_menu(|ui| {
                             ui.heading(&data.name);
                             ui.separator();
                             if ui.button("Browse...").clicked() {
-                                full_path.push(&data.name);
-                                if let Err(e) = opener::reveal(full_path.clone()) {
+                                let mut path = full_path.clone();
+                                path.push(&data.name);
+                                if let Err(e) = opener::reveal(path.clone()) {
                                     error!("Error opening file: {e}")
                                 }
                                 ui.close_kind(UiKind::Menu);
                             }
+                            if ui.button("Copy full path").clicked() {
+                                let mut path = full_path.clone();
+                                path.push(&data.name);
+                                let text = path.to_string_lossy().to_string();
+                                ui.ctx().copy_text(text);
+                                ui.close_kind(UiKind::Menu);
+                            }
                             if ui.button("Ignore path").clicked() {
-                                full_path.push(&data.name);
+                                let mut path = full_path.clone();
+                                path.push(&data.name);
                                 let mut settings = self.settings.lock().unwrap();
-                                settings.add_ignored_path(full_path);
+                                settings.add_ignored_path(path);
+                                ui.close_kind(UiKind::Menu);
+                            }
+                            if ui.button("Copy parent path").clicked() {
+                                let text = full_path.to_string_lossy().to_string();
+                                ui.ctx().copy_text(text);
                                 ui.close_kind(UiKind::Menu);
                             }
                         });
