@@ -48,7 +48,7 @@ jobs:
         if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross pkg-config-aarch64-linux-gnu
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross pkg-config
           sudo ln -sf /usr/sbin/pkg-config /usr/sbin/aarch64-linux-gnu-pkg-config
           echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
           echo "PKG_CONFIG=aarch64-linux-gnu-pkg-config" >> $GITHUB_ENV
