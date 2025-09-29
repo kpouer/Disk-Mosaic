@@ -1,10 +1,11 @@
 use crate::analysis_result::AnalysisResult;
-use crate::data::Kind;
+use crate::data::{Data, Kind};
 use crate::settings::Settings;
 use crate::ui::data_widget::DataWidget;
-use egui::{Event, Label, TextWrapMode, Tooltip, Ui, UiKind, Widget};
+use egui::{Event, Label, Response, TextWrapMode, Tooltip, Ui, UiKind, Widget};
 use humansize::DECIMAL;
 use log::error;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use treemap::{Mappable, TreemapLayout};
 
@@ -62,50 +63,9 @@ impl<'a> TreeMapPanel<'a> {
                         }
                     }
                     if data_widget.need_tooltip && response.hovered() {
-                        Tooltip::for_widget(&response).at_pointer().show(|ui| {
-                            ui.heading(&data.name);
-                            ui.separator();
-                            ui.add(
-                                Label::new(format!(
-                                    "Size: {}",
-                                    humansize::format_size(data.size() as u64, DECIMAL)
-                                ))
-                                .wrap_mode(TextWrapMode::Extend),
-                            );
-                        });
+                        Self::show_tooltip(data, &response);
                     } else if context_menu_opened || show_context_menu {
-                        let full_path = full_path.clone();
-                        response.context_menu(|ui| {
-                            ui.heading(&data.name);
-                            ui.separator();
-                            if ui.button("Browse...").clicked() {
-                                let mut path = full_path.clone();
-                                path.push(&data.name);
-                                if let Err(e) = opener::reveal(path.clone()) {
-                                    error!("Error opening file: {e}")
-                                }
-                                ui.close_kind(UiKind::Menu);
-                            }
-                            if ui.button("Copy parent path").clicked() {
-                                let text = full_path.to_string_lossy().to_string();
-                                ui.ctx().copy_text(text);
-                                ui.close_kind(UiKind::Menu);
-                            }
-                            if ui.button("Copy full path").clicked() {
-                                let mut path = full_path.clone();
-                                path.push(&data.name);
-                                let text = path.to_string_lossy().to_string();
-                                ui.ctx().copy_text(text);
-                                ui.close_kind(UiKind::Menu);
-                            }
-                            if ui.button("Ignore path").clicked() {
-                                let mut path = full_path.clone();
-                                path.push(&data.name);
-                                let mut settings = self.settings.lock().unwrap();
-                                settings.add_ignored_path(path);
-                                ui.close_kind(UiKind::Menu);
-                            }
-                        });
+                        Self::show_context_menu(&full_path, data, response, self.settings);
                     }
                 });
         }
@@ -125,6 +85,60 @@ impl<'a> TreeMapPanel<'a> {
                     self.zoom(hovered_data_index, delta.y)
                 }
             })
+        });
+    }
+
+    fn show_tooltip(data: &Data, response: &Response) {
+        Tooltip::for_widget(response).at_pointer().show(|ui| {
+            ui.heading(&data.name);
+            ui.separator();
+            ui.add(
+                Label::new(format!(
+                    "Size: {}",
+                    humansize::format_size(data.size() as u64, DECIMAL)
+                ))
+                .wrap_mode(TextWrapMode::Extend),
+            );
+        });
+    }
+
+    fn show_context_menu(
+        full_path: &Path,
+        data: &Data,
+        response: Response,
+        settings: &Arc<Mutex<Settings>>,
+    ) {
+        let full_path = full_path.to_path_buf();
+        response.context_menu(|ui| {
+            ui.heading(&data.name);
+            ui.separator();
+            if ui.button("Browse...").clicked() {
+                let mut path = full_path.clone();
+                path.push(&data.name);
+                if let Err(e) = opener::reveal(path.clone()) {
+                    error!("Error opening file: {e}")
+                }
+                ui.close_kind(UiKind::Menu);
+            }
+            if ui.button("Copy parent path").clicked() {
+                let text = full_path.to_string_lossy().to_string();
+                ui.ctx().copy_text(text);
+                ui.close_kind(UiKind::Menu);
+            }
+            if ui.button("Copy full path").clicked() {
+                let mut path = full_path.clone();
+                path.push(&data.name);
+                let text = path.to_string_lossy().to_string();
+                ui.ctx().copy_text(text);
+                ui.close_kind(UiKind::Menu);
+            }
+            if ui.button("Ignore path").clicked() {
+                let mut path = full_path.clone();
+                path.push(&data.name);
+                let mut settings = settings.lock().unwrap();
+                settings.add_ignored_path(path);
+                ui.close_kind(UiKind::Menu);
+            }
         });
     }
 
