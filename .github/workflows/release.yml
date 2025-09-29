@@ -25,10 +25,6 @@ jobs:
             artifact_name: Disk-Mosaic
             asset_name: linux-arm64
             friendly_name: Disk-Mosaic
-          - os: macos-13
-            target: x86_64-apple-darwin
-            asset_name: macos-x86_64
-            friendly_name: DiskMosaic.app
           - os: macos-14
             target: aarch64-apple-darwin
             asset_name: macos-arm64
