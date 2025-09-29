@@ -18,18 +18,26 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_name: Disk-Mosaic
-            asset_name: disk-mosaic-linux-amd64
+            asset_name: linux-x86_64
             friendly_name: Disk-Mosaic
-          - os: macos-latest
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact_name: Disk-Mosaic
+            asset_name: linux-arm64
+            friendly_name: Disk-Mosaic
+          - os: macos-13
             target: x86_64-apple-darwin
-            artifact_name: disk-mosaic.app # Changed artifact name
-            asset_name: disk-mosaic-macos-amd64
-            friendly_name: DiskMosaic.app # Corrected friendly name to match artifact_name
+            asset_name: macos-x86_64
+            friendly_name: DiskMosaic.app
+          - os: macos-14
+            target: aarch64-apple-darwin
+            asset_name: macos-arm64
+            friendly_name: DiskMosaic.app
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: disk-mosaic.exe
-            asset_name: disk-mosaic-windows-amd64.exe
-            friendly_name: disk-mosaic.exe
+            artifact_name: Disk-Mosaic.exe
+            asset_name: windows-x86_64
+            friendly_name: Disk-Mosaic
 
     steps:
       - name: Checkout code
@@ -43,8 +51,16 @@ jobs:
           override: true
           profile: minimal
 
+      - name: Install Linux ARM64 cross toolchain
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libc6-dev-arm64-cross pkg-config-aarch64-linux-gnu
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "PKG_CONFIG=aarch64-linux-gnu-pkg-config" >> $GITHUB_ENV
+
       - name: Install cargo-bundle dependencies (macOS)
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         run: |
           brew install librsvg pango pkg-config
           # Install cargo-bundle and cargo-bundle-licenses
@@ -62,22 +78,22 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Generate licenses (macOS)
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         run: cargo bundle-licenses --format yaml --output THIRDPARTY.yml
 
       - name: Build release binary/bundle
         uses: actions-rs/cargo@v1
         with:
-          command: ${{ matrix.os == 'macos-latest' && 'bundle' || 'build' }}
+          command: ${{ runner.os == 'macOS' && 'bundle' || 'build' }}
           args: --release --target ${{ matrix.target }}
 
       - name: Prepare artifact (Linux/Windows)
-        if: matrix.os != 'macos-latest'
+        if: runner.os != 'macOS'
         shell: bash
         run: |
           mkdir -p release/${{ matrix.friendly_name }}
           # Copy binary and rename to friendly name
-          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} release/${{ matrix.friendly_name }}/${{ matrix.friendly_name }}
+          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} release/${{ matrix.friendly_name }}/${{ matrix.artifact_name }}
           # Copy assets directory
           mkdir -p release/${{ matrix.friendly_name }}/assets
           cp -r assets/* release/${{ matrix.friendly_name }}/assets/
@@ -98,7 +114,7 @@ jobs:
           cd ..
 
       - name: Prepare artifact (macOS)
-        if: matrix.os == 'macos-latest'
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           APP_NAME="${{ matrix.friendly_name }}"
@@ -159,6 +175,18 @@ jobs:
 
       - name: List downloaded artifacts
         run: find artifacts -type f | sort
+
+      - name: Generate SHA256 checksums
+        shell: bash
+        run: |
+          shopt -s globstar
+          for f in artifacts/**/*; do
+            [ -f "$f" ] || continue
+            [[ "$f" == *.sha256 ]] && continue
+            sha256sum "$f" > "$f".sha256
+          done
+          echo "Generated checksums:"
+          find artifacts -type f -name "*.sha256" -print
 
       - name: Create Release
         id: create_release
