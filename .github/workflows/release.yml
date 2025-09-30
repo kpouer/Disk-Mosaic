@@ -114,9 +114,18 @@ jobs:
           # Create Resources directory if it doesn't exist
           mkdir -p "$APP_DIR/Contents/Resources"
 
-          # Copy assets, license, readme, and third-party licenses
+          # Copy Info.plist and icon from packaging template
           cp packaging/DiskMosaic.app/Contents/Info.plist "$APP_DIR/Contents/"
           cp packaging/DiskMosaic.app/Contents/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
+
+          # Set dynamic version fields in Info.plist to ensure a valid plist
+          # Extract version from Cargo.toml (e.g., 0.1.3)
+          CARGO_VERSION=$(grep -m1 '^version\s*=\s*"' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+          # Build a timestamp like 20250930.205530
+          BUILD_ID=$(date +%Y%m%d.%H%M%S)
+          # Use PlistBuddy to set values (safe for XML plists)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $CARGO_VERSION" "$APP_DIR/Contents/Info.plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $CARGO_VERSION" "$APP_DIR/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_ID" "$APP_DIR/Contents/Info.plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_ID" "$APP_DIR/Contents/Info.plist"
 
           # Copy assets directory (copy the whole folder to avoid globbing issues)
           rm -rf "$APP_DIR/Contents/Resources/assets"
