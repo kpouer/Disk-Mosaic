@@ -118,13 +118,13 @@ jobs:
           cp packaging/DiskMosaic.app/Contents/Info.plist "$APP_DIR/Contents/"
           cp packaging/DiskMosaic.app/Contents/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
 
-          # Copy assets directory
-          mkdir -p "$APP_DIR/Contents/Resources/assets"
-          cp -r assets/* "$APP_DIR/Contents/Resources/assets/"
+          # Copy assets directory (copy the whole folder to avoid globbing issues)
+          rm -rf "$APP_DIR/Contents/Resources/assets"
+          cp -R assets "$APP_DIR/Contents/Resources/"
 
-          # Copy media directory
-          mkdir -p "$APP_DIR/Contents/Resources/media"
-          cp -r media/* "$APP_DIR/Contents/Resources/media/"
+          # Copy media directory (copy the whole folder to avoid globbing issues)
+          rm -rf "$APP_DIR/Contents/Resources/media"
+          cp -R media "$APP_DIR/Contents/Resources/"
 
           cp LICENSE "$APP_DIR/Contents/Resources/" || cp LICENCE "$APP_DIR/Contents/Resources/" || echo "No license file found"
           cp README.md "$APP_DIR/Contents/Resources/" || echo "No README.md file found"
