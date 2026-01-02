@@ -23,7 +23,7 @@ log = "0.4"
 egui_solarized = "0.33"
 opener = { version = "0.8.3", features = ["reveal"] }
 rayon = "1.11.0"
-rfd = "0.15"
+rfd = "0.16"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = "0.27.2"
