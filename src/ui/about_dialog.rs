@@ -5,7 +5,7 @@ pub(crate) struct AboutDialog<'a> {
 }
 
 impl<'a> AboutDialog<'a> {
-    pub(crate) fn new(open: &'a mut bool) -> Self {
+    pub(crate) const fn new(open: &'a mut bool) -> Self {
         Self { open }
     }
 

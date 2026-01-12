@@ -26,7 +26,7 @@ impl SelectTarget {
         Self {
             settings_context: SettingsContext::default(),
             settings,
-            storage_manager: Default::default(),
+            storage_manager: StorageManager::default(),
             about_open: false,
         }
     }
@@ -106,7 +106,7 @@ struct StorageWidget<'a> {
 }
 
 impl<'a> StorageWidget<'a> {
-    fn new(storage: &'a Storage, settings: &'a Arc<Mutex<Settings>>) -> Self {
+    const fn new(storage: &'a Storage, settings: &'a Arc<Mutex<Settings>>) -> Self {
         Self { storage, settings }
     }
 }

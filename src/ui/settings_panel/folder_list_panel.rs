@@ -13,7 +13,7 @@ pub(super) struct SearchFolderPanel<'a> {
 }
 
 impl<'a> SearchFolderPanel<'a> {
-    pub(super) fn with_title(
+    pub(super) const fn with_title(
         id: &'a str,
         title: &'a str,
         data: HashListPanel<'a, PathBuf>,

@@ -13,7 +13,7 @@ pub struct DataWidget<'a> {
 }
 
 impl<'a> DataWidget<'a> {
-    pub fn new(data: &'a Data) -> Self {
+    pub const fn new(data: &'a Data) -> Self {
         Self {
             data,
             need_tooltip: true,
