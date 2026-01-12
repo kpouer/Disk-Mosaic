@@ -5,7 +5,7 @@ use crate::ui::data_widget::DataWidget;
 use egui::{Event, Label, Response, TextWrapMode, Tooltip, Ui, UiKind, Widget};
 use humansize::DECIMAL;
 use log::error;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use treemap::{Mappable, Rect, TreemapLayout};
 
@@ -32,10 +32,7 @@ impl<'a> TreeMapPanel<'a> {
         let rect = self.get_treemap_rect(ui);
         let mut clicked_data_index = None;
         let hovered_data_index = None;
-        let mut full_path = self.analysis_result.root_path.clone();
-        for item in self.analysis_result.data_stack[1..].iter() {
-            full_path.push(&item.name);
-        }
+        let full_path = self.build_path();
         if let Some(current_data) = self.analysis_result.data_stack.last_mut()
             && let Kind::Dir(children) = &mut current_data.kind
         {
@@ -80,6 +77,14 @@ impl<'a> TreeMapPanel<'a> {
                 }
             })
         });
+    }
+
+    fn build_path(&mut self) -> PathBuf {
+        let mut full_path = self.analysis_result.root_path.clone();
+        for item in self.analysis_result.data_stack[1..].iter() {
+            full_path.push(&item.name);
+        }
+        full_path
     }
 
     fn get_treemap_rect(&self, ui: &mut Ui) -> Rect {
