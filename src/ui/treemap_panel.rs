@@ -16,7 +16,7 @@ pub(crate) struct TreeMapPanel<'a> {
 }
 
 impl<'a> TreeMapPanel<'a> {
-    pub(crate) fn new(
+    pub(crate) const fn new(
         analysis_result: &'a mut AnalysisResult,
         settings: &'a Arc<Mutex<Settings>>,
         can_zoom_in: bool,
