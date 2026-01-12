@@ -7,7 +7,7 @@ use humansize::DECIMAL;
 use log::error;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use treemap::{Mappable, TreemapLayout};
+use treemap::{Mappable, Rect, TreemapLayout};
 
 pub(crate) struct TreeMapPanel<'a> {
     analysis_result: &'a mut AnalysisResult,
@@ -29,13 +29,7 @@ impl<'a> TreeMapPanel<'a> {
     }
 
     pub(crate) fn show(&mut self, ui: &mut Ui) {
-        let clip_rect = ui.clip_rect();
-        let rect = treemap::Rect::from_points(
-            clip_rect.left() as f64,
-            clip_rect.top() as f64,
-            clip_rect.width() as f64,
-            clip_rect.height() as f64,
-        );
+        let rect = self.get_treemap_rect(ui);
         let mut clicked_data_index = None;
         let hovered_data_index = None;
         let mut full_path = self.analysis_result.root_path.clone();
@@ -86,6 +80,16 @@ impl<'a> TreeMapPanel<'a> {
                 }
             })
         });
+    }
+
+    fn get_treemap_rect(&self, ui: &mut Ui) -> Rect {
+        let clip_rect = ui.clip_rect();
+        Rect::from_points(
+            clip_rect.left() as f64,
+            clip_rect.top() as f64,
+            clip_rect.width() as f64,
+            clip_rect.height() as f64,
+        )
     }
 
     fn show_tooltip(data: &Data, response: &Response) {
