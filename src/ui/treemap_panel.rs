@@ -65,17 +65,16 @@ impl<'a> TreeMapPanel<'a> {
             self.zoom_in(clicked_index);
         }
 
-        ui.ctx().input(|i| {
+        self.handle_zoom_input(ui, hovered_data_index);
+    }
+
+    fn handle_zoom_input(&mut self, ui: &mut Ui, hovered_data_index: Option<usize>) {
+        ui.input(|i| {
             i.events.iter().for_each(|event| {
-                if let Event::MouseWheel {
-                    unit: _,
-                    delta,
-                    modifiers: _,
-                } = event
-                {
-                    self.zoom(hovered_data_index, delta.y)
+                if let Event::MouseWheel { delta, .. } = event {
+                    self.zoom(hovered_data_index, delta.y);
                 }
-            })
+            });
         });
     }
 
