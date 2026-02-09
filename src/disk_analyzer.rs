@@ -4,6 +4,7 @@ use crate::ui::app_state::analyzer::{Analyzer, AnalyzerUpdate}; // Added Analyze
 use crate::ui::app_state::result_view::ResultView;
 use crate::ui::app_state::select_target::SelectTarget;
 use log::info;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -14,12 +15,19 @@ enum AppState {
 }
 
 impl DiskAnalyzerApp {
-    pub(crate) fn new(settings: Settings) -> Self {
+    pub(crate) fn new(settings: Settings, initial_path: Option<PathBuf>) -> Self {
         let settings = Arc::new(Mutex::new(settings));
-        Self {
-            settings: Arc::clone(&settings),
-            state: SelectDisk(SelectTarget::new(settings)),
-        }
+        let state = match initial_path {
+            Some(path) => {
+                info!(
+                    "CLI path provided: {:?}, starting analysis immediately",
+                    path
+                );
+                AppState::Analyzing(Analyzer::new(path, Arc::clone(&settings)))
+            }
+            None => SelectDisk(SelectTarget::new(Arc::clone(&settings))),
+        };
+        Self { settings, state }
     }
 }
 

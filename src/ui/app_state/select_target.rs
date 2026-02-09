@@ -8,6 +8,7 @@ use crate::util::{FONT_SIZE, PathBufToString};
 use egui::{Button, Color32, Context, Image, Response, Tooltip, Ui, Vec2, Widget, include_image};
 use home::home_dir;
 use humansize::DECIMAL;
+use serde::de;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -26,7 +27,7 @@ impl SelectTarget {
         Self {
             settings_context: SettingsContext::default(),
             settings,
-            storage_manager: Default::default(),
+            storage_manager: StorageManager::default(),
             about_open: false,
         }
     }
@@ -100,13 +101,14 @@ impl SelectTarget {
     }
 }
 
+#[derive(Debug)]
 struct StorageWidget<'a> {
     storage: &'a Storage,
     settings: &'a Arc<Mutex<Settings>>,
 }
 
 impl<'a> StorageWidget<'a> {
-    fn new(storage: &'a Storage, settings: &'a Arc<Mutex<Settings>>) -> Self {
+    const fn new(storage: &'a Storage, settings: &'a Arc<Mutex<Settings>>) -> Self {
         Self { storage, settings }
     }
 }

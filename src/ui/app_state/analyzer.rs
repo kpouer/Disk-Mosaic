@@ -32,7 +32,7 @@ pub struct ScanResult {
 }
 
 impl ScanResult {
-    pub(crate) fn add_size(&mut self, size: u64) {
+    pub(crate) const fn add_size(&mut self, size: u64) {
         self.file_count += 1;
         self.size += size;
     }

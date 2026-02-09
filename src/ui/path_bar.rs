@@ -7,7 +7,7 @@ pub struct PathBar<'a> {
 }
 
 impl<'a> PathBar<'a> {
-    pub fn new(analysis_result: &'a mut AnalysisResult) -> Self {
+    pub const fn new(analysis_result: &'a mut AnalysisResult) -> Self {
         Self { analysis_result }
     }
 

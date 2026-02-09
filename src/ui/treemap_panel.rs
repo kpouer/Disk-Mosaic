@@ -5,10 +5,11 @@ use crate::ui::data_widget::DataWidget;
 use egui::{Event, Label, Response, TextWrapMode, Tooltip, Ui, UiKind, Widget};
 use humansize::DECIMAL;
 use log::error;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use treemap::{Mappable, TreemapLayout};
+use treemap::{Mappable, Rect, TreemapLayout};
 
+#[derive(Debug)]
 pub(crate) struct TreeMapPanel<'a> {
     analysis_result: &'a mut AnalysisResult,
     settings: &'a Arc<Mutex<Settings>>,
@@ -16,7 +17,7 @@ pub(crate) struct TreeMapPanel<'a> {
 }
 
 impl<'a> TreeMapPanel<'a> {
-    pub(crate) fn new(
+    pub(crate) const fn new(
         analysis_result: &'a mut AnalysisResult,
         settings: &'a Arc<Mutex<Settings>>,
         can_zoom_in: bool,
@@ -29,19 +30,10 @@ impl<'a> TreeMapPanel<'a> {
     }
 
     pub(crate) fn show(&mut self, ui: &mut Ui) {
-        let clip_rect = ui.clip_rect();
-        let rect = treemap::Rect::from_points(
-            clip_rect.left() as f64,
-            clip_rect.top() as f64,
-            clip_rect.width() as f64,
-            clip_rect.height() as f64,
-        );
+        let rect = self.get_treemap_rect(ui);
         let mut clicked_data_index = None;
         let hovered_data_index = None;
-        let mut full_path = self.analysis_result.root_path.clone();
-        for item in self.analysis_result.data_stack[1..].iter() {
-            full_path.push(&item.name);
-        }
+        let full_path = self.build_path();
         if let Some(current_data) = self.analysis_result.data_stack.last_mut()
             && let Kind::Dir(children) = &mut current_data.kind
         {
@@ -74,18 +66,35 @@ impl<'a> TreeMapPanel<'a> {
             self.zoom_in(clicked_index);
         }
 
-        ui.ctx().input(|i| {
+        self.handle_zoom_input(ui, hovered_data_index);
+    }
+
+    fn handle_zoom_input(&mut self, ui: &mut Ui, hovered_data_index: Option<usize>) {
+        ui.input(|i| {
             i.events.iter().for_each(|event| {
-                if let Event::MouseWheel {
-                    unit: _,
-                    delta,
-                    modifiers: _,
-                } = event
-                {
-                    self.zoom(hovered_data_index, delta.y)
+                if let Event::MouseWheel { delta, .. } = event {
+                    self.zoom(hovered_data_index, delta.y);
                 }
-            })
+            });
         });
+    }
+
+    fn build_path(&mut self) -> PathBuf {
+        let mut full_path = self.analysis_result.root_path.clone();
+        for item in self.analysis_result.data_stack[1..].iter() {
+            full_path.push(&item.name);
+        }
+        full_path
+    }
+
+    fn get_treemap_rect(&self, ui: &mut Ui) -> Rect {
+        let clip_rect = ui.clip_rect();
+        Rect::from_points(
+            clip_rect.left() as f64,
+            clip_rect.top() as f64,
+            clip_rect.width() as f64,
+            clip_rect.height() as f64,
+        )
     }
 
     fn show_tooltip(data: &Data, response: &Response) {

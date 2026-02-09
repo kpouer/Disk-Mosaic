@@ -1,16 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>
-    <string>DiskMosaic</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.kpouer.diskmosaic</string>
-    <key>CFBundleName</key>
-    <string>DiskMosaic</string>
-    <key>CFBundleVersion</key>
-    <string>1.0</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>English</string>
+  <key>CFBundleDisplayName</key>
+  <string>DiskMosaic</string>
+  <key>CFBundleExecutable</key>
+  <string>Disk-Mosaic</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon.icns</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.kpouer.diskmosaic</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>DiskMosaic</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.3</string>
+  <key>CFBundleVersion</key>
+  <string>20250930.205530</string>
+  <key>CSResourcesFileMapped</key>
+  <true/>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.utilities</string>
+  <key>LSRequiresCarbon</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright (c) 2025 Matthieu Casanova</string>
 </dict>
 </plist>

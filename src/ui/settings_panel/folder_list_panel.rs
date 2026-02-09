@@ -6,6 +6,7 @@ use egui_extras::{Column, TableBuilder};
 use rfd::FileDialog;
 use std::path::PathBuf;
 
+#[derive(Debug)]
 pub(super) struct SearchFolderPanel<'a> {
     id_salt: &'a str,
     title: Option<&'a str>,
@@ -13,7 +14,7 @@ pub(super) struct SearchFolderPanel<'a> {
 }
 
 impl<'a> SearchFolderPanel<'a> {
-    pub(super) fn with_title(
+    pub(super) const fn with_title(
         id: &'a str,
         title: &'a str,
         data: HashListPanel<'a, PathBuf>,

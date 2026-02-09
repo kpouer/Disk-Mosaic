@@ -45,7 +45,7 @@ impl Data {
     pub fn new_directory(path: &Path) -> Self {
         Self {
             name: path.name(),
-            kind: Default::default(),
+            kind: Kind::default(),
             color: Self::next_color(),
             ..Default::default()
         }
