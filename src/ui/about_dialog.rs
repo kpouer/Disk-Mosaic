@@ -1,5 +1,6 @@
 use egui::Context;
 
+#[derive(Debug)]
 pub(crate) struct AboutDialog<'a> {
     open: &'a mut bool,
 }

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use treemap::{Mappable, Rect, TreemapLayout};
 
+#[derive(Debug)]
 pub(crate) struct TreeMapPanel<'a> {
     analysis_result: &'a mut AnalysisResult,
     settings: &'a Arc<Mutex<Settings>>,

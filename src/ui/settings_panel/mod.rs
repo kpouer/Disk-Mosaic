@@ -8,6 +8,7 @@ use std::ops::Index;
 use std::sync::{Arc, Mutex};
 use strum::IntoEnumIterator;
 
+#[derive(Debug)]
 pub(crate) struct SettingsDialog<'a> {
     settings_context: &'a mut SettingsContext,
     settings: &'a Arc<Mutex<Settings>>,
@@ -130,6 +131,7 @@ impl<'a> SettingsDialog<'a> {
     }
 }
 
+#[derive(Debug)]
 struct HashListPanel<'a, T> {
     vec: &'a mut Vec<T>,
     selection: &'a mut Option<usize>,

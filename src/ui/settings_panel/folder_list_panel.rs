@@ -6,6 +6,7 @@ use egui_extras::{Column, TableBuilder};
 use rfd::FileDialog;
 use std::path::PathBuf;
 
+#[derive(Debug)]
 pub(super) struct SearchFolderPanel<'a> {
     id_salt: &'a str,
     title: Option<&'a str>,

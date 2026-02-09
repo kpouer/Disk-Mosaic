@@ -8,6 +8,7 @@ use crate::util::{FONT_SIZE, PathBufToString};
 use egui::{Button, Color32, Context, Image, Response, Tooltip, Ui, Vec2, Widget, include_image};
 use home::home_dir;
 use humansize::DECIMAL;
+use serde::de;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -100,6 +101,7 @@ impl SelectTarget {
     }
 }
 
+#[derive(Debug)]
 struct StorageWidget<'a> {
     storage: &'a Storage,
     settings: &'a Arc<Mutex<Settings>>,

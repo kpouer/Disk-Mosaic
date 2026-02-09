@@ -21,9 +21,7 @@ impl ResultView {
             settings,
         }
     }
-}
 
-impl ResultView {
     pub(crate) fn show(&mut self, ctx: &Context) -> bool {
         let mut go_back = false;
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
