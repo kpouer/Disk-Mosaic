@@ -101,6 +101,7 @@ jobs:
         shell: bash
         run: |
           APP_NAME="${{ matrix.friendly_name }}"
+          # cargo-bundle builds the .app in target/<target>/release/bundle/osx/<name>.app
           APP_DIR="target/${{ matrix.target }}/release/bundle/osx/$APP_NAME"
           DMG_NAME="${{ matrix.friendly_name }}-${{ github.ref_name }}-${{ matrix.asset_name }}.dmg"
           VOL_NAME="${{ matrix.friendly_name }} ${{ github.ref_name }}"
@@ -111,33 +112,13 @@ jobs:
             exit 1
           fi
 
-          # Create Resources directory if it doesn't exist
-          mkdir -p "$APP_DIR/Contents/Resources"
-
-          # Copy Info.plist and icon from packaging template
-          cp packaging/DiskMosaic.app/Contents/Info.plist "$APP_DIR/Contents/"
-          cp packaging/DiskMosaic.app/Contents/Resources/AppIcon.icns "$APP_DIR/Contents/Resources/"
-
-          # Set dynamic version fields in Info.plist to ensure a valid plist
-          # Extract version from Cargo.toml (e.g., 0.1.3)
-          CARGO_VERSION=$(grep -m1 '^version\s*=\s*"' Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
-          # Build a timestamp like 20250930.205530
-          BUILD_ID=$(date +%Y%m%d.%H%M%S)
-          # Use PlistBuddy to set values (safe for XML plists)
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $CARGO_VERSION" "$APP_DIR/Contents/Info.plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $CARGO_VERSION" "$APP_DIR/Contents/Info.plist"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_ID" "$APP_DIR/Contents/Info.plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_ID" "$APP_DIR/Contents/Info.plist"
-
-          # Copy assets directory (copy the whole folder to avoid globbing issues)
-          rm -rf "$APP_DIR/Contents/Resources/assets"
-          cp -R assets "$APP_DIR/Contents/Resources/"
-
-          # Copy media directory (copy the whole folder to avoid globbing issues)
-          rm -rf "$APP_DIR/Contents/Resources/media"
-          cp -R media "$APP_DIR/Contents/Resources/"
-
-          cp LICENSE "$APP_DIR/Contents/Resources/" || cp LICENCE "$APP_DIR/Contents/Resources/" || echo "No license file found"
-          cp README.md "$APP_DIR/Contents/Resources/" || echo "No README.md file found"
+          # The bundle already contains resources and Info.plist from Cargo.toml metadata
+          # We might want to add the THIRDPARTY.yml generated during the build
           cp THIRDPARTY.yml "$APP_DIR/Contents/Resources/" || echo "No THIRDPARTY.yml file found"
+
+          # Set CFBundleVersion to a timestamp
+          BUILD_ID=$(date +%Y%m%d.%H%M%S)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_ID" "$APP_DIR/Contents/Info.plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_ID" "$APP_DIR/Contents/Info.plist"
 
           # Create DMG
           mkdir -p release
