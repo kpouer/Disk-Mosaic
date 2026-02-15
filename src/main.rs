@@ -9,12 +9,46 @@ mod ui;
 mod util;
 
 use crate::settings::Settings;
+use crate::ui::text_ui::TextUi;
 use disk_analyzer::DiskAnalyzerApp;
 use egui_extras::install_image_loaders;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result {
     env_logger::init();
+
+    let args: Vec<String> = std::env::args().collect();
+    let is_text_mode = args.iter().any(|arg| arg == "--text");
+
+    if is_text_mode {
+        // On raffine la recherche du chemin car le premier arg est souvent l'executable
+        let path = args
+            .get(1..)
+            .unwrap_or(&[])
+            .iter()
+            .find(|arg| *arg != "--text")
+            .map(PathBuf::from);
+
+        match path {
+            Some(p) if p.is_dir() => {
+                if let Err(e) = TextUi::run(p) {
+                    eprintln!("Error running text UI: {}", e);
+                    std::process::exit(1);
+                }
+                return Ok(());
+            }
+            Some(p) => {
+                eprintln!("Error: Path provided is not a directory: {:?}", p);
+                std::process::exit(1);
+            }
+            None => {
+                eprintln!("Error: Path to scan is mandatory when using --text");
+                eprintln!("Usage: disk-mosaic --text <path>");
+                std::process::exit(1);
+            }
+        }
+    }
+
     // Parse optional CLI path argument: if provided and valid, start scanning immediately
     let initial_path: Option<PathBuf> = std::env::args().nth(1).map(PathBuf::from).and_then(|p| {
         if p.is_dir() {

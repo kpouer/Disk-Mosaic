@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use sysinfo::{Disk, DiskKind};
 
 #[derive(Debug)]
-pub struct Storage {
+pub(crate) struct Storage {
     pub(crate) mount_point: PathBuf,
     pub(crate) name: OsString,
     pub(crate) available: u64,

@@ -31,7 +31,7 @@ impl SelectTarget {
         }
     }
 
-    pub fn show(&mut self, ctx: &Context) -> Option<PathBuf> {
+    pub(crate) fn show(&mut self, ctx: &Context) -> Option<PathBuf> {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Select Scan Target");

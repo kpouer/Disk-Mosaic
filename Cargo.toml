@@ -32,6 +32,8 @@ sysinfo = "0.38"
 thiserror = "2.0"
 treemap = "0.3.2"
 unicode-normalization = "0.1.25"
+ratatui = "0.30.0"
+crossterm = "0.29.0"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"

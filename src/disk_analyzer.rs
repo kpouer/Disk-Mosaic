@@ -32,7 +32,7 @@ impl DiskAnalyzerApp {
 }
 
 #[derive(Debug)]
-pub struct DiskAnalyzerApp {
+pub(crate) struct DiskAnalyzerApp {
     settings: Arc<Mutex<Settings>>,
     state: AppState,
 }

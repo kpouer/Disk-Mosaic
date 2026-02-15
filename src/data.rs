@@ -6,18 +6,18 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use treemap::{Mappable, Rect};
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct Data {
+pub(crate) struct Data {
     pub(crate) depth: u16,
     /// The name of the file or directory
-    pub name: String,
-    pub size: u64,
-    pub bounds: treemap::Rect,
-    pub color: Color32,
-    pub kind: Kind,
+    pub(crate) name: String,
+    pub(crate) size: u64,
+    pub(crate) bounds: treemap::Rect,
+    pub(crate) color: Color32,
+    pub(crate) kind: Kind,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Kind {
+pub(crate) enum Kind {
     Dir(Vec<Data>),
     File,
     SmallFiles(u64),
@@ -30,7 +30,7 @@ impl Default for Kind {
 }
 
 impl Kind {
-    pub const fn get_image(&self) -> ImageSource<'_> {
+    pub(crate) const fn get_image(&self) -> ImageSource<'_> {
         match self {
             Kind::Dir(_) => include_image!("../assets/directory.svg"),
             Kind::File => include_image!("../assets/file.svg"),
@@ -42,7 +42,7 @@ impl Kind {
 static INDEX: AtomicUsize = AtomicUsize::new(0);
 
 impl Data {
-    pub fn new_directory(path: &Path) -> Self {
+    pub(crate) fn new_directory(path: &Path) -> Self {
         Self {
             name: path.name(),
             kind: Kind::default(),
@@ -51,7 +51,7 @@ impl Data {
         }
     }
 
-    pub fn new_file(path: &Path, size: u64) -> Self {
+    pub(crate) fn new_file(path: &Path, size: u64) -> Self {
         Self {
             name: path.name(),
             kind: Kind::File,
@@ -81,11 +81,11 @@ impl Data {
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn set_nodes(&mut self, nodes: Vec<Data>) {
+    pub(crate) fn set_nodes(&mut self, nodes: Vec<Data>) {
         self.size = Self::compute_size(&nodes);
         if let Kind::Dir(_) = &mut self.kind {
             self.kind = Kind::Dir(nodes);

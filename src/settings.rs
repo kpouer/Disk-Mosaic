@@ -42,11 +42,11 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub const fn color_scheme(&self) -> ColorScheme {
+    pub(crate) const fn color_scheme(&self) -> ColorScheme {
         self.color_scheme
     }
 
-    pub const fn color_scheme_mut(&mut self) -> &mut ColorScheme {
+    pub(crate) const fn color_scheme_mut(&mut self) -> &mut ColorScheme {
         &mut self.color_scheme
     }
 
@@ -180,7 +180,7 @@ impl Settings {
 #[derive(
     Debug, Serialize, Deserialize, EnumIter, EnumString, Clone, Copy, PartialEq, Eq, Hash, Default,
 )]
-pub enum ColorScheme {
+pub(crate) enum ColorScheme {
     #[default]
     Egui,
     Solarized,
@@ -201,7 +201,7 @@ impl ColorScheme {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum ThemePreference {
+pub(crate) enum ThemePreference {
     #[default]
     System,
     Dark,

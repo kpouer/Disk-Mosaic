@@ -13,7 +13,7 @@ pub(crate) enum MyError {
 }
 
 /// Return the on-disk size of a file and ignore sparse files (return 0 for them).
-pub fn get_file_size(path: &Path) -> u64 {
+pub(crate) fn get_file_size(path: &Path) -> u64 {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;

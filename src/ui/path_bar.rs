@@ -2,12 +2,12 @@ use crate::analysis_result::AnalysisResult;
 use egui::{Button, Ui, Vec2};
 
 #[derive(Debug)]
-pub struct PathBar<'a> {
+pub(crate) struct PathBar<'a> {
     analysis_result: &'a mut AnalysisResult,
 }
 
 impl<'a> PathBar<'a> {
-    pub const fn new(analysis_result: &'a mut AnalysisResult) -> Self {
+    pub(crate) const fn new(analysis_result: &'a mut AnalysisResult) -> Self {
         Self { analysis_result }
     }
 

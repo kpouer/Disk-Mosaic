@@ -7,13 +7,13 @@ use humansize::DECIMAL;
 use treemap::Mappable;
 
 #[derive(Debug)]
-pub struct DataWidget<'a> {
+pub(crate) struct DataWidget<'a> {
     data: &'a Data,
     pub(crate) need_tooltip: bool,
 }
 
 impl<'a> DataWidget<'a> {
-    pub const fn new(data: &'a Data) -> Self {
+    pub(crate) const fn new(data: &'a Data) -> Self {
         Self {
             data,
             need_tooltip: true,

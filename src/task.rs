@@ -12,7 +12,7 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
-pub struct Task<'a> {
+pub(crate) struct Task<'a> {
     path: PathBuf,
     tx: &'a Sender<Message>,
     stopper: &'a Arc<AtomicBool>,
@@ -21,7 +21,7 @@ pub struct Task<'a> {
 }
 
 impl<'a> Task<'a> {
-    pub const fn new(
+    pub(crate) const fn new(
         path: PathBuf,
         tx: &'a Sender<Message>,
         stopper: &'a Arc<AtomicBool>,
@@ -37,7 +37,7 @@ impl<'a> Task<'a> {
         }
     }
 
-    pub fn run(self) {
+    pub(crate) fn run(self) {
         let Self {
             path,
             tx,
@@ -178,7 +178,7 @@ impl<'a> Task<'a> {
         Ok(children)
     }
 
-    pub fn scan_directory_channel(
+    pub(crate) fn scan_directory_channel(
         path: &Path,
         sender: &Sender<Message>,
         stopper: &Arc<AtomicBool>,

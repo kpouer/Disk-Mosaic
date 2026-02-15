@@ -19,14 +19,14 @@ use std::time::Duration;
 use treemap::Mappable;
 
 #[derive(Debug)]
-pub enum Message {
+pub(crate) enum Message {
     Data(Data),
     DirectoryScanStart(String),
     DirectoryScanDone(ScanResult),
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct ScanResult {
+pub(crate) struct ScanResult {
     pub(crate) file_count: u64,
     pub(crate) size: u64,
 }
@@ -62,7 +62,7 @@ pub(crate) enum AnalyzerUpdate {
 }
 
 #[derive(Debug)]
-pub struct Analyzer {
+pub(crate) struct Analyzer {
     pub(crate) analysis_result: AnalysisResult,
     rx: Receiver<Message>,
     stopper: Arc<AtomicBool>,
