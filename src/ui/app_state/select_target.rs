@@ -5,7 +5,7 @@ use crate::ui::about_dialog::AboutDialog;
 use crate::ui::settings_panel::SettingsContext;
 use crate::ui::settings_panel::SettingsDialog;
 use crate::util::{FONT_SIZE, PathBufToString};
-use egui::{Button, Color32, Context, Image, Response, Tooltip, Ui, Vec2, Widget, include_image};
+use egui::{Button, Color32, Image, Response, Tooltip, Ui, Vec2, Widget, include_image};
 use home::home_dir;
 use humansize::DECIMAL;
 use std::path::PathBuf;
@@ -31,19 +31,19 @@ impl SelectTarget {
         }
     }
 
-    pub(crate) fn show(&mut self, ctx: &Context) -> Option<PathBuf> {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+    pub(crate) fn show(&mut self, ui: &mut Ui) -> Option<PathBuf> {
+        egui::Panel::top("top_panel").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Select Scan Target");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    AboutDialog::new(&mut self.about_open).show_button(ctx, ui);
+                    AboutDialog::new(&mut self.about_open).show_button(ui);
                     SettingsDialog::new(&mut self.settings_context, &self.settings)
-                        .show_button(ctx, ui);
+                        .show_button(ui);
                 });
             });
         });
         egui::CentralPanel::default()
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 let mut selected_path = None;
                 self.storage_manager.iter().for_each(|disk| {
                     if StorageWidget::new(disk, &self.settings).ui(ui).clicked() {

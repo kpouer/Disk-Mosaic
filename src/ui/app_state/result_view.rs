@@ -3,7 +3,7 @@ use crate::settings::Settings;
 use crate::ui::about_dialog::AboutDialog;
 use crate::ui::path_bar::PathBar;
 use crate::ui::treemap_panel::TreeMapPanel;
-use egui::Context;
+use egui::Ui;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -22,9 +22,9 @@ impl ResultView {
         }
     }
 
-    pub(crate) fn show(&mut self, ctx: &Context) -> bool {
+    pub(crate) fn show(&mut self, ui: &mut Ui) -> bool {
         let mut go_back = false;
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        egui::Panel::top("top_panel").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("⬅").clicked() {
                     go_back = true;
@@ -32,11 +32,11 @@ impl ResultView {
                 PathBar::new(&mut self.analysis_result).show(ui);
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    AboutDialog::new(&mut self.about_open).show_button(ctx, ui);
+                    AboutDialog::new(&mut self.about_open).show_button(ui);
                 });
             });
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             TreeMapPanel::new(&mut self.analysis_result, &self.settings, true).show(ui);
         });
 

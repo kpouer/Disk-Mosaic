@@ -1,4 +1,4 @@
-use egui::Context;
+use egui::Ui;
 
 #[derive(Debug)]
 pub(crate) struct AboutDialog<'a> {
@@ -10,19 +10,19 @@ impl<'a> AboutDialog<'a> {
         Self { open }
     }
 
-    pub(crate) fn show_button(&mut self, ctx: &Context, ui: &mut egui::Ui) {
+    pub(crate) fn show_button(&mut self, ui: &mut egui::Ui) {
         if ui.button("?").clicked() {
             *self.open = true;
         }
         if *self.open {
-            self.show(ctx);
+            self.show(ui);
         }
     }
 
-    fn show(&mut self, ctx: &Context) {
+    fn show(&mut self, ui: &Ui) {
         egui::Window::new("About Disk Mosaic")
             .open(self.open)
-            .show(ctx, |ui| {
+            .show(ui.ctx(), |ui| {
                 ui.label("Disk Mosaic");
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
                 ui.label("Created by Matthieu Casanova");

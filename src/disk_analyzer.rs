@@ -1,11 +1,13 @@
 use crate::disk_analyzer::AppState::SelectDisk;
 use crate::settings::Settings;
-use crate::ui::app_state::analyzer::{Analyzer, AnalyzerUpdate}; // Added AnalyzerUpdate
+use crate::ui::app_state::analyzer::{Analyzer, AnalyzerUpdate};
 use crate::ui::app_state::result_view::ResultView;
 use crate::ui::app_state::select_target::SelectTarget;
 use log::info;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use eframe::Frame;
+use egui::{Context, Ui};
 
 #[derive(Debug)]
 enum AppState {
@@ -38,10 +40,13 @@ pub(crate) struct DiskAnalyzerApp {
 }
 
 impl eframe::App for DiskAnalyzerApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn logic(&mut self, _: &Context, _: &mut Frame) {
+    }
+
+    fn ui(&mut self, ui: &mut Ui, _: &mut Frame) {
         match &mut self.state {
             AppState::SelectDisk(select_target) => {
-                if let Some(selected_path) = select_target.show(ctx) {
+                if let Some(selected_path) = select_target.show(ui) {
                     info!("Selected path: {selected_path:?}");
                     self.state = AppState::Analyzing(Analyzer::new(
                         selected_path,
@@ -49,7 +54,7 @@ impl eframe::App for DiskAnalyzerApp {
                     ));
                 }
             }
-            AppState::Analyzing(analyzer) => match analyzer.show(ctx) {
+            AppState::Analyzing(analyzer) => match analyzer.show(ui) {
                 AnalyzerUpdate::Finished => {
                     info!("Analysis finished, transitioning to ResultView");
                     let analysis_result = std::mem::take(&mut analyzer.analysis_result);
@@ -66,7 +71,7 @@ impl eframe::App for DiskAnalyzerApp {
                 AnalyzerUpdate::Running => {}
             },
             AppState::Analyzed(result_view) => {
-                if result_view.show(ctx) {
+                if result_view.show(ui) {
                     info!("Back requested from ResultView, transitioning to SelectTarget");
                     self.state =
                         AppState::SelectDisk(SelectTarget::new(Arc::clone(&self.settings)));
@@ -74,7 +79,7 @@ impl eframe::App for DiskAnalyzerApp {
             }
         }
 
-        if ctx.input(|i| i.viewport().close_requested()) {
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
             let settings = self.settings.lock().unwrap();
             settings.save().expect("Unable to save settings");
         }

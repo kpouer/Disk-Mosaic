@@ -5,7 +5,7 @@ use crate::task::Task;
 use crate::ui::about_dialog::AboutDialog;
 use crate::ui::path_bar::PathBar;
 use crate::ui::treemap_panel::TreeMapPanel;
-use egui::{Context, Label};
+use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
 use std::ops::{Add, AddAssign};
@@ -102,9 +102,9 @@ impl Analyzer {
         }
     }
 
-    pub(crate) fn show(&mut self, ctx: &Context) -> AnalyzerUpdate {
+    pub(crate) fn show(&mut self, ui: &mut Ui) -> AnalyzerUpdate {
         self.receive_data();
-        let top_panel_result = self.show_top_panel(ctx);
+        let top_panel_result = self.show_top_panel(ui);
 
         if top_panel_result == AnalyzerUpdate::GoBack {
             info!("Stop requested via Back button");
@@ -112,10 +112,10 @@ impl Analyzer {
             return AnalyzerUpdate::GoBack;
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             TreeMapPanel::new(&mut self.analysis_result, &self.settings, false).show(ui);
         });
-        ctx.request_repaint_after(Duration::from_millis(60));
+        ui.ctx().request_repaint_after(Duration::from_millis(60));
 
         if self.handle.is_finished() {
             AnalyzerUpdate::Finished
@@ -144,9 +144,9 @@ impl Analyzer {
         }
     }
 
-    fn show_top_panel(&mut self, ctx: &Context) -> AnalyzerUpdate {
+    fn show_top_panel(&mut self, ui: &mut Ui) -> AnalyzerUpdate {
         let mut update_status = AnalyzerUpdate::Running;
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        egui::Panel::top("top_panel").show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("⬅").clicked() {
                     update_status = AnalyzerUpdate::GoBack;
@@ -166,7 +166,7 @@ impl Analyzer {
                 ));
                 ui.add(scanning_label);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    AboutDialog::new(&mut self.about_open).show_button(ctx, ui);
+                    AboutDialog::new(&mut self.about_open).show_button(ui);
                 });
             });
         });

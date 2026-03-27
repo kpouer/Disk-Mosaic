@@ -2,7 +2,7 @@ mod folder_list_panel;
 
 use crate::settings::{ColorScheme, Settings, ThemePreference};
 use crate::ui::settings_panel::folder_list_panel::SearchFolderPanel;
-use egui::Context;
+use egui::Ui;
 use humansize::DECIMAL;
 use std::ops::Index;
 use std::sync::{Arc, Mutex};
@@ -27,20 +27,20 @@ impl<'a> SettingsDialog<'a> {
         }
     }
 
-    pub(crate) fn show_button(&mut self, ctx: &Context, ui: &mut egui::Ui) {
+    pub(crate) fn show_button(&mut self, ui: &mut egui::Ui) {
         if ui.button(GEAR).clicked() {
             self.settings_context.open = true;
         }
         if self.settings_context.open {
-            self.show(ctx);
+            self.show(ui);
         }
     }
 
-    fn show(&mut self, ctx: &Context) {
+    fn show(&mut self, ui: &mut Ui) {
         let mut settings = self.settings.lock().unwrap();
         egui::Window::new("Settings")
             .open(&mut self.settings_context.open)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 egui::Grid::new("my_grid")
                     .num_columns(2)
                     .spacing([40.0, 4.0])
@@ -59,7 +59,7 @@ impl<'a> SettingsDialog<'a> {
                                         )
                                         .clicked()
                                     {
-                                        scheme.apply(ctx);
+                                        scheme.apply(ui.ctx());
                                     }
                                 });
                             });
@@ -71,21 +71,21 @@ impl<'a> SettingsDialog<'a> {
                                 .clicked()
                             {
                                 settings.set_theme(ThemePreference::System);
-                                ctx.set_theme(ThemePreference::System);
+                                ui.ctx().set_theme(ThemePreference::System);
                             }
                             if ui
                                 .radio(settings.theme() == ThemePreference::Dark, "Dark")
                                 .clicked()
                             {
                                 settings.set_theme(ThemePreference::Dark);
-                                ctx.set_theme(ThemePreference::Dark);
+                                ui.ctx().set_theme(ThemePreference::Dark);
                             }
                             if ui
                                 .radio(settings.theme() == ThemePreference::Light, "Light")
                                 .clicked()
                             {
                                 settings.set_theme(ThemePreference::Light);
-                                ctx.set_theme(ThemePreference::Light);
+                                ui.ctx().set_theme(ThemePreference::Light);
                             }
                         });
                         ui.end_row();
