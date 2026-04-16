@@ -3,11 +3,11 @@ use crate::settings::Settings;
 use crate::ui::app_state::analyzer::{Analyzer, AnalyzerUpdate};
 use crate::ui::app_state::result_view::ResultView;
 use crate::ui::app_state::select_target::SelectTarget;
+use eframe::Frame;
+use egui::{Context, Ui};
 use log::info;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use eframe::Frame;
-use egui::{Context, Ui};
 
 #[derive(Debug)]
 enum AppState {
@@ -40,8 +40,7 @@ pub(crate) struct DiskAnalyzerApp {
 }
 
 impl eframe::App for DiskAnalyzerApp {
-    fn logic(&mut self, _: &Context, _: &mut Frame) {
-    }
+    fn logic(&mut self, _: &Context, _: &mut Frame) {}
 
     fn ui(&mut self, ui: &mut Ui, _: &mut Frame) {
         match &mut self.state {

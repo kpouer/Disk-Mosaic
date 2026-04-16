@@ -37,8 +37,7 @@ impl SelectTarget {
                 ui.heading("Select Scan Target");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     AboutDialog::new(&mut self.about_open).show_button(ui);
-                    SettingsDialog::new(&mut self.settings_context, &self.settings)
-                        .show_button(ui);
+                    SettingsDialog::new(&mut self.settings_context, &self.settings).show_button(ui);
                 });
             });
         });

@@ -14,7 +14,10 @@ pub(crate) struct ResultView {
 }
 
 impl ResultView {
-    pub(crate) const fn new(analysis_result: AnalysisResult, settings: Arc<Mutex<Settings>>) -> Self {
+    pub(crate) const fn new(
+        analysis_result: AnalysisResult,
+        settings: Arc<Mutex<Settings>>,
+    ) -> Self {
         Self {
             analysis_result,
             about_open: false,

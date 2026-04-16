@@ -49,7 +49,7 @@ impl<'a> Task<'a> {
 
         let mut data = Data::new_directory(&path);
 
-        match Self::scan_directory_recursive(&path, stopper, &sender, settings) {
+        match Scanner::new(stopper, &sender, settings).scan_directory_recursive(&path) {
             Ok(children) => {
                 data.set_nodes(children);
             }
@@ -61,140 +61,6 @@ impl<'a> Task<'a> {
         if let Err(e) = tx.send(Message::Data(data)) {
             warn!("Failed to send data message: {e}");
         }
-    }
-
-    fn scan_directory_recursive(
-        path: &Path,
-        stopper: &Arc<AtomicBool>,
-        sender: &Sender<Message>,
-        settings: &Arc<Mutex<Settings>>,
-    ) -> Result<Vec<Data>, MyError> {
-        if let Err(e) = sender.send(Message::DirectoryScanStart(path.absolute_path())) {
-            warn!("Received dropped {e}");
-            return Err(MyError::ReceiverDropped);
-        }
-        let big_file_threshold = settings.lock().unwrap().big_file_threshold();
-        let entries = match path.read_dir() {
-            Ok(iter) => {
-                let iter = iter.flatten();
-                #[cfg(target_os = "macos")]
-                let iter = iter.filter(|p| !p.path().starts_with("/System/Volumes"));
-                #[cfg(target_os = "linux")]
-                let iter = iter.filter(|p| !p.path().starts_with("/proc"));
-                iter.collect::<Vec<_>>()
-            }
-            Err(e) => {
-                if e.kind() != ErrorKind::PermissionDenied {
-                    debug!("Error reading directory: {path:?}, {e:?}");
-                }
-                return Ok(Vec::new());
-            }
-        };
-
-        let small_files = Arc::new(Mutex::new(Data {
-            name: "Remaining".to_string(),
-            kind: Kind::SmallFiles(0),
-            size: 0,
-            color: Data::next_color(),
-            ..Default::default()
-        }));
-
-        let mut scanned_children: Vec<Data> = Self::collect_children(
-            stopper,
-            sender,
-            settings,
-            big_file_threshold,
-            entries,
-            &small_files,
-        );
-        let mut scan_result = scanned_children
-            .par_iter()
-            .filter(|data| matches!(data.kind, Kind::File))
-            .map(|data| ScanResult {
-                file_count: 1,
-                size: data.size,
-            })
-            .reduce(ScanResult::default, |left, right| left + right);
-
-        {
-            let small_files = small_files.lock().unwrap();
-            if small_files.size > 0 {
-                scanned_children.push(small_files.clone());
-            }
-            if let Kind::SmallFiles(count) = small_files.kind {
-                scan_result.file_count += count;
-            }
-            scan_result.size += small_files.size;
-        }
-        if scan_result.file_count != 0
-            && let Err(e) = sender.send(Message::DirectoryScanDone(scan_result))
-        {
-            warn!("Received dropped {e}");
-        }
-        Ok(scanned_children)
-    }
-
-    fn collect_children(
-        stopper: &Arc<AtomicBool>,
-        sender: &Sender<Message>,
-        settings: &Arc<Mutex<Settings>>,
-        big_file_threshold: u64,
-        entries: Vec<DirEntry>,
-        small_files: &Arc<Mutex<Data>>,
-    ) -> Vec<Data> {
-        entries
-            .par_iter()
-            .filter_map(|entry| {
-                if stopper.load(Ordering::Relaxed) {
-                    debug!("Stop requested during recursive scan");
-                    return None;
-                }
-
-                let entry_path = entry.path();
-                let metadata = match entry.metadata() {
-                    Ok(m) => m,
-                    Err(e) => {
-                        debug!("Failed to get metadata for {entry_path:?}: {e}");
-                        return None;
-                    }
-                };
-                if metadata.is_dir() {
-                    {
-                        let settings = settings.lock().unwrap();
-                        if settings.is_path_ignored(&entry_path) {
-                            info!("Ignoring path: {entry_path:?}");
-                            return None;
-                        }
-                    }
-                    match Self::scan_directory_recursive(&entry_path, stopper, sender, settings) {
-                        Ok(grandchildren) => {
-                            let mut dir_data = Data::new_directory(&entry_path);
-                            dir_data.set_nodes(grandchildren);
-                            Some(dir_data)
-                        }
-                        Err(e) => {
-                            warn!("Error recursively scanning directory {entry_path:?}: {e}");
-                            None
-                        }
-                    }
-                } else if metadata.is_file() {
-                    let size = util::get_file_size(&entry_path);
-                    if size < big_file_threshold {
-                        let mut small_files = small_files.lock().unwrap();
-                        if let Kind::SmallFiles(count) = &mut small_files.kind {
-                            *count += 1;
-                        }
-                        small_files.size += size;
-                        None
-                    } else {
-                        Some(Data::new_file(&entry_path, size))
-                    }
-                } else {
-                    // Ignore symlinks, sockets, etc.
-                    None
-                }
-            })
-            .collect()
     }
 
     pub(crate) fn scan_directory_channel(
@@ -244,5 +110,149 @@ impl<'a> Task<'a> {
         if let Err(e) = sender.send(Message::DirectoryScanDone(scan_result)) {
             warn!("Receiver dropped {e}");
         }
+    }
+}
+
+#[derive(Debug)]
+struct Scanner<'a> {
+    stopper: &'a Arc<AtomicBool>,
+    sender: &'a Sender<Message>,
+    settings: &'a Arc<Mutex<Settings>>,
+}
+
+impl<'a> Scanner<'a> {
+    const fn new(
+        stopper: &'a Arc<AtomicBool>,
+        sender: &'a Sender<Message>,
+        settings: &'a Arc<Mutex<Settings>>,
+    ) -> Scanner<'a> {
+        Self {
+            stopper,
+            sender,
+            settings,
+        }
+    }
+
+    fn scan_directory_recursive(&self, path: &Path) -> Result<Vec<Data>, MyError> {
+        if let Err(e) = self
+            .sender
+            .send(Message::DirectoryScanStart(path.absolute_path()))
+        {
+            warn!("Received dropped {e}");
+            return Err(MyError::ReceiverDropped);
+        }
+        let big_file_threshold = self.settings.lock().unwrap().big_file_threshold();
+        let entries = match path.read_dir() {
+            Ok(iter) => {
+                let iter = iter.flatten();
+                #[cfg(target_os = "macos")]
+                let iter = iter.filter(|p| !p.path().starts_with("/System/Volumes"));
+                #[cfg(target_os = "linux")]
+                let iter = iter.filter(|p| !p.path().starts_with("/proc"));
+                iter.collect::<Vec<_>>()
+            }
+            Err(e) => {
+                if e.kind() != ErrorKind::PermissionDenied {
+                    debug!("Error reading directory: {path:?}, {e:?}");
+                }
+                return Ok(Vec::new());
+            }
+        };
+
+        let small_files = Arc::new(Mutex::new(Data {
+            name: "Remaining".to_string(),
+            kind: Kind::SmallFiles(0),
+            size: 0,
+            color: Data::next_color(),
+            ..Default::default()
+        }));
+
+        let mut scanned_children = self.collect_children(big_file_threshold, entries, &small_files);
+        let mut scan_result = scanned_children
+            .par_iter()
+            .filter(|data| matches!(data.kind, Kind::File))
+            .map(|data| ScanResult {
+                file_count: 1,
+                size: data.size,
+            })
+            .reduce(ScanResult::default, |left, right| left + right);
+
+        {
+            let small_files = small_files.lock().unwrap();
+            if small_files.size > 0 {
+                scanned_children.push(small_files.clone());
+            }
+            if let Kind::SmallFiles(count) = small_files.kind {
+                scan_result.file_count += count;
+            }
+            scan_result.size += small_files.size;
+        }
+        if scan_result.file_count != 0
+            && let Err(e) = self.sender.send(Message::DirectoryScanDone(scan_result))
+        {
+            warn!("Received dropped {e}");
+        }
+        Ok(scanned_children)
+    }
+
+    fn collect_children(
+        &self,
+        big_file_threshold: u64,
+        entries: Vec<DirEntry>,
+        small_files: &Arc<Mutex<Data>>,
+    ) -> Vec<Data> {
+        entries
+            .par_iter()
+            .filter_map(|entry| {
+                if self.stopper.load(Ordering::Relaxed) {
+                    debug!("Stop requested during recursive scan");
+                    return None;
+                }
+
+                let entry_path = entry.path();
+                let metadata = match entry.metadata() {
+                    Ok(m) => m,
+                    Err(e) => {
+                        debug!("Failed to get metadata for {entry_path:?}: {e}");
+                        return None;
+                    }
+                };
+                if metadata.is_dir() {
+                    {
+                        let settings = self.settings.lock().unwrap();
+                        if settings.is_path_ignored(&entry_path) {
+                            info!("Ignoring path: {entry_path:?}");
+                            return None;
+                        }
+                    }
+                    match self.scan_directory_recursive(&entry_path) {
+                        Ok(grandchildren) => {
+                            let mut dir_data = Data::new_directory(&entry_path);
+                            dir_data.set_nodes(grandchildren);
+                            Some(dir_data)
+                        }
+                        Err(e) => {
+                            warn!("Error recursively scanning directory {entry_path:?}: {e}");
+                            None
+                        }
+                    }
+                } else if metadata.is_file() {
+                    let size = util::get_file_size(&entry_path);
+                    if size < big_file_threshold {
+                        let mut small_files = small_files.lock().unwrap();
+                        if let Kind::SmallFiles(count) = &mut small_files.kind {
+                            *count += 1;
+                        }
+                        small_files.size += size;
+                        None
+                    } else {
+                        Some(Data::new_file(&entry_path, size))
+                    }
+                } else {
+                    // Ignore symlinks, sockets, etc.
+                    None
+                }
+            })
+            .collect()
     }
 }
