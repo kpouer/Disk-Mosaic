@@ -5,6 +5,7 @@ use crate::util;
 use crate::util::{MyError, PathBufToString};
 use log::{debug, info, warn};
 use rayon::prelude::*;
+use std::fs::DirEntry;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -98,7 +99,50 @@ impl<'a> Task<'a> {
             ..Default::default()
         }));
 
-        let mut scanned_children: Vec<Data> = entries
+        let mut scanned_children: Vec<Data> = Self::collect_children(
+            stopper,
+            sender,
+            settings,
+            big_file_threshold,
+            entries,
+            &small_files,
+        );
+        let mut scan_result = scanned_children
+            .par_iter()
+            .filter(|data| matches!(data.kind, Kind::File))
+            .map(|data| ScanResult {
+                file_count: 1,
+                size: data.size,
+            })
+            .reduce(ScanResult::default, |left, right| left + right);
+
+        {
+            let small_files = small_files.lock().unwrap();
+            if small_files.size > 0 {
+                scanned_children.push(small_files.clone());
+            }
+            if let Kind::SmallFiles(count) = small_files.kind {
+                scan_result.file_count += count;
+            }
+            scan_result.size += small_files.size;
+        }
+        if scan_result.file_count != 0
+            && let Err(e) = sender.send(Message::DirectoryScanDone(scan_result))
+        {
+            warn!("Received dropped {e}");
+        }
+        Ok(scanned_children)
+    }
+
+    fn collect_children(
+        stopper: &Arc<AtomicBool>,
+        sender: &Sender<Message>,
+        settings: &Arc<Mutex<Settings>>,
+        big_file_threshold: u64,
+        entries: Vec<DirEntry>,
+        small_files: &Arc<Mutex<Data>>,
+    ) -> Vec<Data> {
+        entries
             .par_iter()
             .filter_map(|entry| {
                 if stopper.load(Ordering::Relaxed) {
@@ -150,32 +194,7 @@ impl<'a> Task<'a> {
                     None
                 }
             })
-            .collect();
-        let mut scan_result = scanned_children
-            .par_iter()
-            .filter(|data| matches!(data.kind, Kind::File))
-            .map(|data| ScanResult {
-                file_count: 1,
-                size: data.size,
-            })
-            .reduce(ScanResult::default, |left, right| left + right);
-
-        {
-            let small_files = small_files.lock().unwrap();
-            if small_files.size > 0 {
-                scanned_children.push(small_files.clone());
-            }
-            if let Kind::SmallFiles(count) = small_files.kind {
-                scan_result.file_count += count;
-            }
-            scan_result.size += small_files.size;
-        }
-        if scan_result.file_count != 0
-            && let Err(e) = sender.send(Message::DirectoryScanDone(scan_result))
-        {
-            warn!("Received dropped {e}");
-        }
-        Ok(scanned_children)
+            .collect()
     }
 
     pub(crate) fn scan_directory_channel(
