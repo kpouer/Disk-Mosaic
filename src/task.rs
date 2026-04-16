@@ -90,7 +90,7 @@ impl<'a> Task<'a> {
             }
         };
 
-        let small_file_data = Arc::new(Mutex::new(Data {
+        let small_files = Arc::new(Mutex::new(Data {
             name: "Remaining".to_string(),
             kind: Kind::SmallFiles(0),
             size: 0,
@@ -98,7 +98,7 @@ impl<'a> Task<'a> {
             ..Default::default()
         }));
 
-        let mut children: Vec<Data> = entries
+        let mut scanned_children: Vec<Data> = entries
             .par_iter()
             .filter_map(|entry| {
                 if stopper.load(Ordering::Relaxed) {
@@ -136,11 +136,11 @@ impl<'a> Task<'a> {
                 } else if metadata.is_file() {
                     let size = util::get_file_size(&entry_path);
                     if size < big_file_threshold {
-                        let mut d = small_file_data.lock().unwrap();
-                        if let Kind::SmallFiles(count) = &mut d.kind {
+                        let mut small_files = small_files.lock().unwrap();
+                        if let Kind::SmallFiles(count) = &mut small_files.kind {
                             *count += 1;
                         }
-                        d.size += size;
+                        small_files.size += size;
                         None
                     } else {
                         Some(Data::new_file(&entry_path, size))
@@ -151,31 +151,31 @@ impl<'a> Task<'a> {
                 }
             })
             .collect();
-        let mut file_result = children
+        let mut scan_result = scanned_children
             .par_iter()
             .filter(|data| matches!(data.kind, Kind::File))
             .map(|data| ScanResult {
                 file_count: 1,
                 size: data.size,
             })
-            .reduce(ScanResult::default, |d1, d2| d1 + d2);
+            .reduce(ScanResult::default, |left, right| left + right);
 
         {
-            let small_file_data = small_file_data.lock().unwrap();
-            if small_file_data.size > 0 {
-                children.push(small_file_data.clone());
+            let small_files = small_files.lock().unwrap();
+            if small_files.size > 0 {
+                scanned_children.push(small_files.clone());
             }
-            if let Kind::SmallFiles(count) = small_file_data.kind {
-                file_result.file_count += count;
+            if let Kind::SmallFiles(count) = small_files.kind {
+                scan_result.file_count += count;
             }
-            file_result.size += small_file_data.size;
+            scan_result.size += small_files.size;
         }
-        if file_result.file_count != 0
-            && let Err(e) = sender.send(Message::DirectoryScanDone(file_result))
+        if scan_result.file_count != 0
+            && let Err(e) = sender.send(Message::DirectoryScanDone(scan_result))
         {
             warn!("Received dropped {e}");
         }
-        Ok(children)
+        Ok(scanned_children)
     }
 
     pub(crate) fn scan_directory_channel(
