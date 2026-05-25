@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "Disk-Mosaic"
+name = "DiskMosaic"
 version = "0.1.5"
 dependencies = [
  "crossterm",

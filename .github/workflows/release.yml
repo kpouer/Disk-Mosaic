@@ -1,177 +1,363 @@
-name: Release
+name: Rust
+
 on:
   push:
-    tags:
-      - "v*.*.*"
+  pull_request:
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  # Name matches package.name in Cargo.toml
+  NAME: DiskMosaic
+  # Bundle name matches package.metadata.bundle.name
+  BUNDLE_NAME: DiskMosaic
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
-    name: Build ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: Disk-Mosaic
-            asset_name: linux-x86_64
-            friendly_name: Disk-Mosaic
-          - os: macos-14
-            target: aarch64-apple-darwin
-            asset_name: macos-arm64
-            friendly_name: DiskMosaic.app
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: Disk-Mosaic.exe
-            asset_name: windows-x86_64
-            friendly_name: Disk-Mosaic
-
+  test:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+      # Install GUI dependencies for eframe/egui and clipboard support
+#      - name: Install dependencies
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libwayland-dev
 
-      - name: Install cargo-bundle dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install librsvg pango pkg-config
-          # Install cargo-bundle and cargo-bundle-licenses
-          cargo install cargo-bundle cargo-bundle-licenses --locked
-
-      - name: Cache Cargo dependencies
+      - name: Cargo cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+            ./target
+          key: test-cargo-registry-${{ hashFiles('Cargo.lock') }}
 
-      - name: Generate licenses (macOS)
-        if: runner.os == 'macOS'
-        run: cargo bundle-licenses --format yaml --output THIRDPARTY.yml
+      - name: Run tests
+        # Git dependencies (crawler/imagepipe) are handled automatically by cargo
+        run: cargo test --verbose
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - TARGET: x86_64-unknown-linux-gnu
+            OS: ubuntu-latest
+          - TARGET: aarch64-apple-darwin
+            OS: macos-latest
+          - TARGET: x86_64-pc-windows-msvc
+            OS: windows-latest
+    needs: test
+    runs-on: ${{ matrix.OS }}
+    env:
+      TARGET: ${{ matrix.TARGET }}
+      OS: ${{ matrix.OS }}
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Build release binary/bundle
-        shell: bash
+      - name: Calculate Cargo hash
+        id: cargo-hash
         run: |
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            cargo bundle --release --target ${{ matrix.target }}
+          if command -v sha256sum > /dev/null; then
+            echo "hash=$(sha256sum Cargo.lock | awk '{print $1}')" >> $GITHUB_OUTPUT
           else
-            cargo build --release --target ${{ matrix.target }}
+            echo "hash=$(shasum -a 256 Cargo.lock | awk '{print $1}')" >> $GITHUB_OUTPUT
           fi
 
-      - name: Prepare artifact (Linux/Windows)
+      - name: Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ./target
+          key: build-cargo-registry-${{ matrix.TARGET }}-${{ steps.cargo-hash.outputs.hash }}
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libwayland-dev
+
+      - name: Install rust target
+        run: rustup target add $TARGET
+
+      - name: Install cargo-bundle
+        if: runner.os == 'macOS'
+        run: cargo install cargo-bundle
+
+      - name: Run build (Linux/Windows)
         if: runner.os != 'macOS'
-        shell: bash
-        run: |
-          mkdir -p release/${{ matrix.friendly_name }}
-          # Copy binary and rename to friendly name
-          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} release/${{ matrix.friendly_name }}/${{ matrix.artifact_name }}
-          # Copy assets directory
-          mkdir -p release/${{ matrix.friendly_name }}/assets
-          cp -r assets/* release/${{ matrix.friendly_name }}/assets/
-          # Copy media directory
-          mkdir -p release/${{ matrix.friendly_name }}/media
-          cp -r media/* release/${{ matrix.friendly_name }}/media/
-          # Copy license and readme
-          cp LICENSE release/${{ matrix.friendly_name }}/ || cp LICENCE release/${{ matrix.friendly_name }}/ || echo "No license file found"
-          cp README.md release/${{ matrix.friendly_name }}/ || echo "No README.md file found"
+        run: cargo build --release --verbose --target $TARGET
 
-          # Create archive based on OS
-          cd release
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a -tzip ${{ matrix.friendly_name }}-${{ github.ref_name }}-${{ matrix.asset_name }}.zip ${{ matrix.friendly_name }}
-          else
-            tar -czf ${{ matrix.friendly_name }}-${{ github.ref_name }}-${{ matrix.asset_name }}.tar.gz ${{ matrix.friendly_name }}
-          fi
-          cd ..
-
-      - name: Prepare artifact (macOS)
+      - name: Run bundle (macOS)
         if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          APP_NAME="${{ matrix.friendly_name }}"
-          # cargo-bundle builds the .app in target/<target>/release/bundle/osx/<name>.app
-          APP_DIR="target/${{ matrix.target }}/release/bundle/osx/$APP_NAME"
-          DMG_NAME="${{ matrix.friendly_name }}-${{ github.ref_name }}-${{ matrix.asset_name }}.dmg"
-          VOL_NAME="${{ matrix.friendly_name }} ${{ github.ref_name }}"
+        run: cargo bundle --release --target $TARGET
 
-          # Ensure the app directory exists
-          if [ ! -d "$APP_DIR" ]; then
-            echo "Error: App directory not found at $APP_DIR"
-            exit 1
+      - name: Install zip (Windows)
+        if: runner.os == 'Windows'
+        run: choco install zip
+
+      - name: Compress
+        run: |
+          mkdir -p ./artifacts
+          if [[ $GITHUB_REF_TYPE =~ ^tag$ ]]; then
+            TAG=$GITHUB_REF_NAME
+          else
+            TAG=$GITHUB_SHA
           fi
 
-          # The bundle already contains resources and Info.plist from Cargo.toml metadata
-          # We might want to add the THIRDPARTY.yml generated during the build
-          cp THIRDPARTY.yml "$APP_DIR/Contents/Resources/" || echo "No THIRDPARTY.yml file found"
+          # Windows
+          if [[ $OS =~ ^windows.*$ ]]; then
+              EXEC=$NAME.exe
+              mv ./target/$TARGET/release/$EXEC ./$EXEC
+              zip ./artifacts/$NAME-$TARGET-$TAG.zip $EXEC README.md LICENSE
+          
+          # MacOS
+          elif [[ $OS =~ ^macos.*$ ]]; then
+              # cargo-bundle outputs to target/release/bundle/osx/
+              # The folder name here relies on [package.metadata.bundle] name = "DiskMosaic"
+              APP_DIR="./target/$TARGET/release/bundle/osx"
+          
+              # Find the .app directory name automatically to be safe
+              APP_NAME_WITH_EXT=$(find "$APP_DIR" -name "*.app" -maxdepth 1 -exec basename {} \;)
 
-          # Set CFBundleVersion to a timestamp
-          BUILD_ID=$(date +%Y%m%d.%H%M%S)
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_ID" "$APP_DIR/Contents/Info.plist" || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_ID" "$APP_DIR/Contents/Info.plist"
+              if [ -z "$APP_NAME_WITH_EXT" ]; then
+                  echo "Error: No .app directory found in $APP_DIR"
+                  exit 1
+              fi
+          
+              echo "Zipping app: $APP_NAME_WITH_EXT"
+          
+              # Copy aux files into .app parent dir for zipping
+              cp ./README.md "$APP_DIR/" || true
+              cp ./LICENSE "$APP_DIR/" || true
+          
+              (cd "$APP_DIR" && zip -r -q "../../../../../artifacts/$NAME-$TARGET-$TAG.zip" "$APP_NAME_WITH_EXT" README.md LICENSE)
+          # Linux
+          else
+              EXEC=$NAME
+              mv ./target/$TARGET/release/$EXEC ./$EXEC
+              tar -czf ./artifacts/$NAME-$TARGET-$TAG.tar.gz $EXEC README.md LICENSE
+          fi
 
-          # Create DMG
-          mkdir -p release
-          hdiutil create -volname "$VOL_NAME" -srcfolder "$APP_DIR" -ov -format UDZO "release/$DMG_NAME"
-
-      - name: Upload artifact
+      - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.friendly_name }}-${{ github.ref_name }}-${{ matrix.asset_name }}
-          # Adjust path glob to include .dmg, .zip, .tar.gz
-          path: release/${{ matrix.friendly_name }}-${{ github.ref_name }}-${{ matrix.asset_name }}.*
+          name: result-${{ matrix.TARGET }}
+          path: |
+            ./artifacts
 
-  release:
-    name: Create Release
+  build-msi:
+    name: Build Windows MSI
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ./target
+          key: msi-cargo-registry-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix
+
+      - name: Build MSI
+        run: |
+          # If wix/main.wxs does not exist, init it
+          if [ ! -d "wix" ]; then
+            echo "Wix configuration not found, initializing defaults..."
+            cargo wix init
+          fi
+          # Git deps are handled automatically
+          cargo wix --nocapture
+
+      - name: Archive MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-msi
+          path: target/wix/*.msi
+
+  build-deb:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libwayland-dev
+
+      - name: Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ./target
+          key: deb-cargo-registry-${{ hashFiles('Cargo.lock') }}
+
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+
+      - name: Build Debian package
+        run: cargo deb
+
+      - name: Archive Debian package
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-deb
+          path: target/debian/*.deb
+
+  build-appimage:
+    name: Build Linux AppImage
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libwayland-dev fuse libfuse2 desktop-file-utils
+
+      - name: Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ./target
+          key: appimage-cargo-registry-${{ hashFiles('Cargo.lock') }}
+
+      - name: Build release binary
+        run: cargo build --release --verbose
+
+      - name: Stage AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          install -m 755 target/release/DiskMosaic AppDir/usr/bin/DiskMosaic
+          install -m 644 DiskMosaic.desktop AppDir/usr/share/applications/DiskMosaic.desktop
+          install -m 644 DiskMosaic.png AppDir/usr/share/icons/hicolor/256x256/apps/DiskMosaic.png
+
+          # Top-level icon + .desktop are required by AppImage tooling
+          cp AppDir/usr/share/icons/hicolor/256x256/apps/DiskMosaic.png AppDir/DiskMosaic.png
+          cp AppDir/usr/share/applications/DiskMosaic.desktop AppDir/DiskMosaic.desktop
+
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+      - name: Build AppImage
+        env:
+          # GitHub Actions runners do not always allow FUSE; extract and run instead.
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          # The appimage plugin uses LDAI_OUTPUT (newer) / OUTPUT (deprecated)
+          # to set the resulting filename directly — no post-rename needed.
+          LDAI_OUTPUT: DiskMosaic-${{ github.ref_type == 'tag' && github.ref_name || github.sha }}-x86_64.AppImage
+        run: |
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --desktop-file AppDir/usr/share/applications/DiskMosaic.desktop \
+            --icon-file AppDir/DiskMosaic.png \
+            --output appimage
+
+      - name: Archive AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-appimage
+          # Match only DiskMosaic-prefixed AppImages so the linuxdeploy
+          # tool itself does not end up in the artifact.
+          path: ./DiskMosaic-*.AppImage
+
+  build-chocolatey:
+    name: Build Chocolatey package
     needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        shell: bash
+        run: |
+          if [[ $GITHUB_REF_TYPE == "tag" ]]; then
+            # Strip a leading "v" if present (e.g. v2.4.6 -> 2.4.6)
+            VER="${GITHUB_REF_NAME#v}"
+          else
+            VER=$(grep -m1 '^version' Cargo.toml | sed -E 's/version *= *"([^"]+)"/\1/')
+          fi
+          echo "version=$VER" >> $GITHUB_OUTPUT
+
+      - name: Download Windows build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: result-x86_64-pc-windows-msvc
+          path: ./win-zip
+
+      - name: Compute zip checksum
+        id: sum
+        shell: bash
+        run: |
+          ZIP=$(ls ./win-zip/*.zip | head -n1)
+          if [[ -z "$ZIP" ]]; then
+            echo "No Windows zip found in ./win-zip" >&2
+            exit 1
+          fi
+          SUM=$(sha256sum "$ZIP" | awk '{print toupper($1)}')
+          echo "checksum=$SUM" >> $GITHUB_OUTPUT
+
+      - name: Stamp nuspec and install script
+        shell: bash
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+          SUM: ${{ steps.sum.outputs.checksum }}
+        run: |
+          sed -i "s|@@VERSION@@|${VER}|g" packaging/chocolatey/DiskMosaic.nuspec
+          sed -i "s|@@VERSION@@|${VER}|g" packaging/chocolatey/tools/chocolateyinstall.ps1
+          sed -i "s|@@CHECKSUM64@@|${SUM}|g" packaging/chocolatey/tools/chocolateyinstall.ps1
+
+      - name: Pack
+        shell: pwsh
+        run: |
+          cd packaging/chocolatey
+          choco pack DiskMosaic.nuspec --out ../../
+
+      - name: Archive Chocolatey package
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-chocolatey
+          path: ./*.nupkg
+
+  deploy:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, build-deb, build-msi, build-appimage, build-chocolatey, build-flatpak]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          path: ./artifacts
 
-      - name: List downloaded artifacts
-        run: find artifacts -type f | sort
-
-      - name: Generate SHA256 checksums
-        shell: bash
-        run: |
-          shopt -s globstar
-          for f in artifacts/**/*; do
-            [ -f "$f" ] || continue
-            [[ "$f" == *.sha256 ]] && continue
-            sha256sum "$f" > "$f".sha256
-          done
-          echo "Generated checksums:"
-          find artifacts -type f -name "*.sha256" -print
-
-      - name: Create Release
-        id: create_release
+      - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*
-          name: Disk Mosaic ${{ github.ref_name }}
-          body: |
-            # Disk Mosaic ${{ github.ref_name }}
-
-            Disk Mosaic is a utility tool that helps you visually identify how your disk space is used and where.
-          draft: true
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            ./artifacts/*/*.tar.gz
+            ./artifacts/*/*.zip
+            ./artifacts/*/*.deb
+            ./artifacts/*/*.msi
+            ./artifacts/*/*.AppImage
+            ./artifacts/*/*.nupkg
+            ./artifacts/*/*.flatpak
