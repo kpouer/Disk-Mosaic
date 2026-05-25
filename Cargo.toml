@@ -1,5 +1,5 @@
 [package]
-name = "Disk-Mosaic"
+name = "DiskMosaic"
 version = "0.1.5"
 edition = "2024"
 build = "build.rs"
