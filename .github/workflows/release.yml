@@ -338,53 +338,6 @@ jobs:
           name: result-chocolatey
           path: ./*.nupkg
 
-  build-flatpak:
-    name: Build Linux Flatpak
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Flatpak Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder elfutils
-          sudo flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-          # 25.08 is required because rust-stable//24.08 ships rustc 1.89,
-          # which is below egui 0.34's 1.92 MSRV. 25.08 ships rustc 1.94.
-          sudo flatpak install -y flathub org.freedesktop.Sdk//25.08 \
-                                          org.freedesktop.Platform//25.08 \
-                                          org.freedesktop.Sdk.Extension.rust-stable//25.08 \
-                                          org.freedesktop.Sdk.Extension.llvm20//25.08
-
-      - name: Vendor Cargo dependencies
-        run: |
-          # Re-resolve so the lockfile reflects the current Cargo.toml.
-          rm -f Cargo.lock
-          cargo generate-lockfile
-
-          # `cargo vendor` writes the correct source-replacement config for
-          # crates.io AND every git dep (including the two rawler revs) to
-          # stdout. Don't append anything else — that's what broke the build
-          # before. stderr carries progress messages and must NOT go into
-          # config.toml.
-          mkdir -p .cargo
-          cargo vendor > .cargo/config.toml 2>/dev/null
-
-      - name: Build Flatpak
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: DiskMosaic.flatpak
-          manifest-path: io.github.dividebysandwich.DiskMosaic.yml
-          cache-key: flatpak-builder-${{ github.sha }}
-
-      - name: Archive Flatpak Bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: result-flatpak
-          path: DiskMosaic.flatpak
-
   deploy:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [build, build-deb, build-msi, build-appimage, build-chocolatey, build-flatpak]
