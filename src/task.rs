@@ -95,7 +95,10 @@ impl<'a> Task<'a> {
                         }
                         Task::new(path, sender, stopper, sender.clone(), &settings).run();
                     } else if path.is_file() {
-                        let size = util::get_file_size(&path);
+                        let size = match path.metadata() {
+                            Ok(metadata) => util::get_file_size(&metadata),
+                            Err(_) => 0
+                        };
                         scan_result.add_size(size);
                         if let Err(e) = sender.send(Message::Data(Data::new_file(&path, size))) {
                             warn!("Receiver dropped {e}");
@@ -201,7 +204,7 @@ impl<'a> Scanner<'a> {
                             items.push(dir_data);
                         }
                     } else if metadata.is_file() {
-                        let file_size = util::get_file_size(&entry_path);
+                        let file_size = util::get_file_size(&metadata);
                         if file_size < big_file_threshold {
                             count += 1;
                             size += file_size;

@@ -1,3 +1,4 @@
+use std::fs::Metadata;
 use std::path::Path;
 use thiserror::Error;
 use unicode_normalization::UnicodeNormalization;
@@ -13,28 +14,25 @@ pub(crate) enum MyError {
 }
 
 /// Return the on-disk size of a file and ignore sparse files (return 0 for them).
-pub(crate) fn get_file_size(path: &Path) -> u64 {
+pub(crate) fn get_file_size(metadata: &Metadata) -> u64 {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        if let Ok(meta) = path.metadata() {
-            // `blocks()` is a cross-Unix accessor; it returns 512-byte block counts.
-            let physical = meta.blocks().saturating_mul(512);
-            let logical = meta.len();
-            // If the physical size is smaller than the logical size, and we're on a filesystem
-            // that represents holes (sparse), ignore this file by returning 0.
-            if physical < logical {
-                return 0;
-            }
-            return physical;
+        // `blocks()` is a cross-Unix accessor; it returns 512-byte block counts.
+        let physical = metadata.blocks().saturating_mul(512);
+        let logical = metadata.len();
+        // If the physical size is smaller than the logical size, and we're on a filesystem
+        // that represents holes (sparse), ignore this file by returning 0.
+        if physical < logical {
+            return 0;
         }
-        0
+        return physical;
     }
     #[cfg(not(unix))]
     {
         // On non-Unix targets, fall back to logical file size.
         // Detecting sparse files portably requires platform-specific APIs which we avoid here.
-        path.metadata().map(|m| m.len()).unwrap_or(0)
+        metadata.map(|m| m.len()).unwrap_or(0)
     }
 }
 
