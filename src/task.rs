@@ -218,24 +218,7 @@ impl<'a> Scanner<'a> {
                     }
                 };
                 if metadata.is_dir() {
-                    {
-                        let settings = self.settings.lock().unwrap();
-                        if settings.is_path_ignored(&entry_path) {
-                            info!("Ignoring path: {entry_path:?}");
-                            return None;
-                        }
-                    }
-                    match self.scan_directory_recursive(&entry_path) {
-                        Ok(grandchildren) => {
-                            let mut dir_data = Data::new_directory(&entry_path);
-                            dir_data.set_nodes(grandchildren);
-                            Some(dir_data)
-                        }
-                        Err(e) => {
-                            warn!("Error recursively scanning directory {entry_path:?}: {e}");
-                            None
-                        }
-                    }
+                    self.process_dir(&entry_path)
                 } else if metadata.is_file() {
                     let size = util::get_file_size(&entry_path);
                     if size < big_file_threshold {
@@ -254,5 +237,26 @@ impl<'a> Scanner<'a> {
                 }
             })
             .collect()
+    }
+
+    fn process_dir(&self, entry_path: &PathBuf) -> Option<Data> {
+        {
+            let settings = self.settings.lock().unwrap();
+            if settings.is_path_ignored(&entry_path) {
+                info!("Ignoring path: {entry_path:?}");
+                return None;
+            }
+        }
+        match self.scan_directory_recursive(&entry_path) {
+            Ok(grandchildren) => {
+                let mut dir_data = Data::new_directory(&entry_path);
+                dir_data.set_nodes(grandchildren);
+                Some(dir_data)
+            }
+            Err(e) => {
+                warn!("Error recursively scanning directory {entry_path:?}: {e}");
+                None
+            }
+        }
     }
 }
