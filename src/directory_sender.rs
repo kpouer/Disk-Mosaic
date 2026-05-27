@@ -1,4 +1,3 @@
-use crate::data::Kind::SmallFiles;
 use crate::data::{Data, Kind};
 use crate::settings::Settings;
 use crate::ui::app_state::analyzer::{Message, ScanResult};
@@ -14,35 +13,31 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
-pub(crate) struct Task<'a> {
+pub(crate) struct DirectoryScanner<'a> {
     path: PathBuf,
-    tx: &'a Sender<Message>,
     stopper: &'a Arc<AtomicBool>,
     sender: Sender<Message>,
     settings: &'a Arc<Mutex<Settings>>,
 }
 
-impl<'a> Task<'a> {
+impl<'a> DirectoryScanner<'a> {
     pub(crate) const fn new(
         path: PathBuf,
-        tx: &'a Sender<Message>,
         stopper: &'a Arc<AtomicBool>,
         sender: Sender<Message>,
         settings: &'a Arc<Mutex<Settings>>,
     ) -> Self {
         Self {
             path,
-            tx,
             stopper,
             sender,
             settings,
         }
     }
 
-    pub(crate) fn run(self) {
+    pub(crate) fn run(self) -> Data {
         let Self {
             path,
-            tx,
             stopper,
             sender,
             settings,
@@ -58,10 +53,7 @@ impl<'a> Task<'a> {
                 warn!("Error scanning directory {path:?}: {e}");
             }
         }
-
-        if let Err(e) = tx.send(Message::Data(data)) {
-            warn!("Failed to send data message: {e}");
-        }
+        data
     }
 
     pub(crate) fn scan_directory_channel(
@@ -93,11 +85,17 @@ impl<'a> Task<'a> {
                                 return;
                             }
                         }
-                        Task::new(path, sender, stopper, sender.clone(), &settings).run();
+                        let data =
+                            DirectoryScanner::new(path, stopper, sender.clone(), &settings).run();
+                        if data.size > 0
+                            && let Err(e) = sender.send(Message::Data(data))
+                        {
+                            warn!("Failed to send data message: {e}");
+                        }
                     } else if path.is_file() {
                         let size = match path.metadata() {
                             Ok(metadata) => util::get_file_size(&metadata),
-                            Err(_) => 0
+                            Err(_) => 0,
                         };
                         scan_result.add_size(size);
                         if let Err(e) = sender.send(Message::Data(Data::new_file(&path, size))) {
@@ -164,7 +162,7 @@ impl<'a> Scanner<'a> {
         };
 
         let scanned_children = self.collect_children(big_file_threshold, entries);
-        let mut scan_result = scanned_children
+        let scan_result = scanned_children
             .par_iter()
             .filter(|data| matches!(data.kind, Kind::File))
             .map(|data| ScanResult {

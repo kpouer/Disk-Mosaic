@@ -1,7 +1,7 @@
 use crate::analysis_result::AnalysisResult;
 use crate::data::{Data, Kind};
 use crate::settings::Settings;
-use crate::task::Task;
+use crate::directory_sender::DirectoryScanner;
 use crate::ui::app_state::analyzer::Message;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -81,7 +81,7 @@ impl TextUi {
         let path_clone = self.analysis_result.root_path.clone();
 
         std::thread::spawn(move || {
-            Task::scan_directory_channel(&path_clone, &tx, &stopper_clone, settings_clone);
+            DirectoryScanner::scan_directory_channel(&path_clone, &tx, &stopper_clone, settings_clone);
         });
 
         let mut last_tick = Instant::now();

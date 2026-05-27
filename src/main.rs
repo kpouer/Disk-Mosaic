@@ -4,7 +4,7 @@ mod data;
 mod disk_analyzer;
 mod service;
 mod settings;
-mod task;
+mod directory_sender;
 mod ui;
 mod util;
 

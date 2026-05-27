@@ -1,7 +1,7 @@
 use crate::analysis_result::AnalysisResult;
 use crate::data::Data;
 use crate::settings::Settings;
-use crate::task::Task;
+use crate::directory_sender::DirectoryScanner;
 use crate::ui::about_dialog::AboutDialog;
 use crate::ui::path_bar::PathBar;
 use crate::ui::treemap_panel::TreeMapPanel;
@@ -85,7 +85,7 @@ impl Analyzer {
         let settings_copy = Arc::clone(&settings);
         let handle = thread::spawn(move || {
             let start = std::time::Instant::now();
-            Task::scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
+            DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
             info!("Done in {}ms", start.elapsed().as_millis());
         });
         let root_data = Data::new_directory(&root);
