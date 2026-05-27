@@ -87,10 +87,8 @@ impl<'a> DirectoryScanner<'a> {
                         }
                         let data =
                             DirectoryScanner::new(path, stopper, sender.clone(), &settings).run();
-                        if data.size > 0
-                            && let Err(e) = sender.send(Message::Data(data))
-                        {
-                            warn!("Failed to send data message: {e}");
+                        if data.size > 0 {
+                            Self::send_message(sender, Message::Data(data));
                         }
                     } else if path.is_file() {
                         let size = match path.metadata() {
@@ -98,9 +96,7 @@ impl<'a> DirectoryScanner<'a> {
                             Err(_) => 0,
                         };
                         scan_result.add_size(size);
-                        if let Err(e) = sender.send(Message::Data(Data::new_file(&path, size))) {
-                            warn!("Receiver dropped {e}");
-                        }
+                        Self::send_message(sender, Message::Data(Data::new_file(&path, size)));
                     }
                 });
             }
@@ -109,9 +105,15 @@ impl<'a> DirectoryScanner<'a> {
                 _ => debug!("Error reading directory: {path:?}, {e:?}"),
             },
         }
-        if let Err(e) = sender.send(Message::DirectoryScanDone(scan_result)) {
+        Self::send_message(sender, Message::DirectoryScanDone(scan_result));
+    }
+
+    fn send_message(sender: &Sender<Message>, message: Message) -> bool {
+        if let Err(e) = sender.send(message) {
             warn!("Receiver dropped {e}");
+            return false;
         }
+        true
     }
 }
 
