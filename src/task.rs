@@ -1,3 +1,4 @@
+use crate::data::Kind::SmallFiles;
 use crate::data::{Data, Kind};
 use crate::settings::Settings;
 use crate::ui::app_state::analyzer::{Message, ScanResult};
@@ -159,15 +160,7 @@ impl<'a> Scanner<'a> {
             }
         };
 
-        let small_files = Arc::new(Mutex::new(Data {
-            name: "Remaining".to_string(),
-            kind: Kind::SmallFiles(0),
-            size: 0,
-            color: Data::next_color(),
-            ..Default::default()
-        }));
-
-        let mut scanned_children = self.collect_children(big_file_threshold, entries, &small_files);
+        let scanned_children = self.collect_children(big_file_threshold, entries);
         let mut scan_result = scanned_children
             .par_iter()
             .filter(|data| matches!(data.kind, Kind::File))
@@ -177,16 +170,6 @@ impl<'a> Scanner<'a> {
             })
             .reduce(ScanResult::default, |left, right| left + right);
 
-        {
-            let small_files = small_files.lock().unwrap();
-            if small_files.size > 0 {
-                scanned_children.push(small_files.clone());
-            }
-            if let Kind::SmallFiles(count) = small_files.kind {
-                scan_result.file_count += count;
-            }
-            scan_result.size += small_files.size;
-        }
         if scan_result.file_count != 0
             && let Err(e) = self.sender.send(Message::DirectoryScanDone(scan_result))
         {
@@ -195,48 +178,60 @@ impl<'a> Scanner<'a> {
         Ok(scanned_children)
     }
 
-    fn collect_children(
-        &self,
-        big_file_threshold: u64,
-        entries: Vec<DirEntry>,
-        small_files: &Arc<Mutex<Data>>,
-    ) -> Vec<Data> {
-        entries
+    fn collect_children(&self, big_file_threshold: u64, entries: Vec<DirEntry>) -> Vec<Data> {
+        let (mut data, (small_file_count, small_file_size)) = entries
             .par_iter()
-            .filter_map(|entry| {
-                if self.stopper.load(Ordering::Relaxed) {
-                    debug!("Stop requested during recursive scan");
-                    return None;
-                }
+            .fold(
+                || (Vec::new(), (0u64, 0u64)),
+                |(mut items, (mut count, mut size)), entry| {
+                    if self.stopper.load(Ordering::Relaxed) {
+                        return (items, (count, size));
+                    }
 
-                let entry_path = entry.path();
-                let metadata = match entry.metadata() {
-                    Ok(m) => m,
-                    Err(e) => {
-                        debug!("Failed to get metadata for {entry_path:?}: {e}");
-                        return None;
-                    }
-                };
-                if metadata.is_dir() {
-                    self.process_dir(&entry_path)
-                } else if metadata.is_file() {
-                    let size = util::get_file_size(&entry_path);
-                    if size < big_file_threshold {
-                        let mut small_files = small_files.lock().unwrap();
-                        if let Kind::SmallFiles(count) = &mut small_files.kind {
-                            *count += 1;
+                    let entry_path = entry.path();
+                    let metadata = match entry.metadata() {
+                        Ok(m) => m,
+                        Err(e) => {
+                            debug!("Failed to get metadata for {entry_path:?}: {e}");
+                            return (items, (count, size));
                         }
-                        small_files.size += size;
-                        None
-                    } else {
-                        Some(Data::new_file(&entry_path, size))
+                    };
+                    if metadata.is_dir() {
+                        if let Some(dir_data) = self.process_dir(&entry_path) {
+                            items.push(dir_data);
+                        }
+                    } else if metadata.is_file() {
+                        let file_size = util::get_file_size(&entry_path);
+                        if file_size < big_file_threshold {
+                            count += 1;
+                            size += file_size;
+                        } else {
+                            items.push(Data::new_file(&entry_path, file_size));
+                        }
                     }
-                } else {
-                    // Ignore symlinks, sockets, etc.
-                    None
-                }
-            })
-            .collect()
+                    (items, (count, size))
+                },
+            )
+            .reduce(
+                || (Vec::new(), (0, 0)),
+                |(mut items_l, (count_l, size_l)), (items_r, (count_r, size_r))| {
+                    items_l.extend(items_r);
+                    (items_l, (count_l + count_r, size_l + size_r))
+                },
+            );
+        if small_file_size > 0 {
+            let small_files = Data {
+                name: "Remaining".to_string(),
+                kind: Kind::SmallFiles(small_file_count),
+                size: small_file_size,
+                color: Data::next_color(),
+                ..Default::default()
+            };
+
+            data.push(small_files);
+        }
+
+        data
     }
 
     fn process_dir(&self, entry_path: &PathBuf) -> Option<Data> {
