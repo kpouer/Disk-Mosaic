@@ -125,6 +125,7 @@ impl Analyzer {
     }
 
     fn receive_data(&mut self) {
+        let mut count = 1000;
         for message in self.rx.try_iter() {
             match message {
                 Message::DirectoryScanStart(d) => {
@@ -140,6 +141,10 @@ impl Analyzer {
                         }
                     }
                 }
+            }
+            count -= 1;
+            if count == 0 {
+                break;
             }
         }
     }
