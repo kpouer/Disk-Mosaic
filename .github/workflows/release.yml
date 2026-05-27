@@ -2,6 +2,8 @@ name: Rust
 
 on:
   push:
+    tags:
+      - "*"
   pull_request:
   workflow_dispatch:
 
