@@ -4,7 +4,7 @@ use crate::settings::Settings;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use disk_mosaic_core::analysis_result::AnalysisResult;
 use disk_mosaic_core::data::{Data, Kind};
@@ -12,16 +12,17 @@ use disk_mosaic_core::directory_scanner::DirectoryScanner;
 use disk_mosaic_core::model::message::Message;
 use humansize::DECIMAL;
 use ratatui::{
+    Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect as RatatuiRect},
     style::{Color, Style},
     widgets::{Block, Borders, TableState},
-    Terminal,
 };
+use std::borrow::Cow;
 use std::io;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 use treemap::{Mappable, Rect, TreemapLayout};
 
@@ -40,7 +41,7 @@ pub struct TextUi {
     scanned_directories: u64,
     file_count: u64,
     total_size: u64,
-    current_scanning_path: String,
+    current_scanning_path: Option<String>,
 }
 
 impl TextUi {
@@ -77,7 +78,7 @@ impl TextUi {
             scanned_directories: 0,
             file_count: 0,
             total_size: 0,
-            current_scanning_path: String::new(),
+            current_scanning_path: None,
         }
     }
 
@@ -89,12 +90,7 @@ impl TextUi {
         let path_clone = self.analysis_result.root_path.clone();
 
         std::thread::spawn(move || {
-            DirectoryScanner::scan_directory_channel(
-                &path_clone,
-                &tx,
-                &stopper_clone,
-                Settings,
-            );
+            DirectoryScanner::scan_directory_channel(&path_clone, &tx, &stopper_clone, Settings);
         });
 
         let mut last_tick = Instant::now();
@@ -142,10 +138,11 @@ impl TextUi {
                         }
                     }
                     Message::DirectoryScanStart(d) => {
-                        self.current_scanning_path = d;
+                        self.current_scanning_path = Some(d);
                         self.scanned_directories += 1;
                     }
                     Message::DirectoryScanDone(res) => {
+                        self.current_scanning_path = None;
                         self.file_count += res.file_count;
                         self.total_size += res.size;
                     }
@@ -239,7 +236,7 @@ impl TextUi {
                     Constraint::Min(0),
                     Constraint::Length(3),
                 ]
-                    .as_ref(),
+                .as_ref(),
             )
             .split(f.area());
 
@@ -269,17 +266,15 @@ impl TextUi {
         self.render_treemap(f, chunks[1]);
 
         // Footer
-        let footer_text = if self.analysis_result.data_stack.len() > 1 {
-            format!(
-                "Scanning: {} | Arrows: Navigate | Enter: Open | Backspace: Back | 'q': Quit",
-                self.current_scanning_path
-            )
+        let mut footer_text = if self.analysis_result.data_stack.len() > 1 {
+            "Arrows: Navigate | Enter: Open | Backspace: Back | 'q': Quit"
         } else {
-            format!(
-                "Scanning: {} | Arrows: Navigate | Enter: Open | 'q': Quit",
-                self.current_scanning_path
-            )
-        };
+            "Arrows: Navigate | Enter: Open | 'q': Quit"
+        }
+        .to_string();
+        if let Some(current_scanning_path) = &self.current_scanning_path {
+            footer_text.push_str(&format!(" | Scanning: {current_scanning_path}"));
+        }
         let footer = ratatui::widgets::Paragraph::new(footer_text)
             .block(Block::default().borders(Borders::ALL));
         f.render_widget(footer, chunks[2]);
