@@ -1,10 +1,11 @@
-use crate::ui::settings_panel::HashListPanel;
-use crate::util::{FONT_SIZE, PathBufToString};
 use eframe::emath::Vec2;
 use egui::{Button, Label, Sense};
 use egui_extras::{Column, TableBuilder};
 use rfd::FileDialog;
 use std::path::PathBuf;
+use disk_mosaic_core::util::PathBufToString;
+use crate::FONT_SIZE;
+use crate::settings_panel::HashListPanel;
 
 #[derive(Debug)]
 pub(super) struct SearchFolderPanel<'a> {

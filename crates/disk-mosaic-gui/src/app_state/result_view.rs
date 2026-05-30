@@ -1,10 +1,10 @@
-use crate::analysis_result::AnalysisResult;
 use crate::settings::Settings;
-use crate::ui::about_dialog::AboutDialog;
-use crate::ui::path_bar::PathBar;
-use crate::ui::treemap_panel::TreeMapPanel;
 use egui::Ui;
 use std::sync::{Arc, Mutex};
+use disk_mosaic_core::analysis_result::AnalysisResult;
+use crate::about_dialog::AboutDialog;
+use crate::path_bar::PathBar;
+use crate::treemap_panel::TreeMapPanel;
 
 #[derive(Debug)]
 pub(crate) struct ResultView {

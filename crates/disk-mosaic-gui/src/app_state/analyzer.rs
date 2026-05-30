@@ -1,58 +1,23 @@
-use crate::analysis_result::AnalysisResult;
-use crate::data::Data;
+use crate::about_dialog::AboutDialog;
+use crate::path_bar::PathBar;
 use crate::settings::Settings;
-use crate::directory_sender::DirectoryScanner;
-use crate::ui::about_dialog::AboutDialog;
-use crate::ui::path_bar::PathBar;
-use crate::ui::treemap_panel::TreeMapPanel;
+use crate::treemap_panel::TreeMapPanel;
+use disk_mosaic_core::analysis_result::AnalysisResult;
+use disk_mosaic_core::data::Data;
+use disk_mosaic_core::directory_scanner::{DirectoryScanner, ScanConfig};
+use disk_mosaic_core::model::message::Message;
+use disk_mosaic_core::model::scan_result::ScanResult;
 use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
-use std::ops::{Add, AddAssign};
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use treemap::Mappable;
-
-#[derive(Debug)]
-pub(crate) enum Message {
-    Data(Data),
-    DirectoryScanStart(String),
-    DirectoryScanDone(ScanResult),
-}
-
-#[derive(Debug, Default, Clone)]
-pub(crate) struct ScanResult {
-    pub(crate) file_count: u64,
-    pub(crate) size: u64,
-}
-
-impl ScanResult {
-    pub(crate) const fn add_size(&mut self, size: u64) {
-        self.file_count += 1;
-        self.size += size;
-    }
-}
-
-impl Add for ScanResult {
-    type Output = ScanResult;
-
-    fn add(mut self, rhs: Self) -> Self::Output {
-        self += rhs;
-        self
-    }
-}
-
-impl AddAssign for ScanResult {
-    fn add_assign(&mut self, rhs: Self) {
-        self.file_count += rhs.file_count;
-        self.size += rhs.size;
-    }
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum AnalyzerUpdate {
@@ -85,7 +50,7 @@ impl Analyzer {
         let settings_copy = Arc::clone(&settings);
         let handle = thread::spawn(move || {
             let start = std::time::Instant::now();
-            DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
+            DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, ScannerConfig::new(settings_copy));
             info!("Done in {}ms", start.elapsed().as_millis());
         });
         let root_data = Data::new_directory(&root);
@@ -177,5 +142,30 @@ impl Analyzer {
         });
 
         update_status
+    }
+}
+
+struct ScannerConfig {
+    big_file_threshold: u64,
+    settings: Arc<Mutex<Settings>>,
+}
+
+impl ScannerConfig {
+    fn new(settings: Arc<Mutex<Settings>>) -> Self {
+        let big_file_threshold = settings.lock().unwrap().big_file_threshold();
+        Self {
+            big_file_threshold,
+            settings
+        }
+    }
+}
+
+impl ScanConfig for ScannerConfig {
+    fn big_file_threshold(&self) -> u64 {
+        self.big_file_threshold
+    }
+
+    fn is_path_ignored(&self, path: &Path) -> bool {
+        self.settings.lock().unwrap().is_path_ignored(path)
     }
 }

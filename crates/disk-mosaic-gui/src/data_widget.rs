@@ -1,5 +1,7 @@
-use crate::data::Data;
-use crate::util::FONT_SIZE;
+use crate::color::ToEguiColor32;
+use crate::data::get_image;
+use crate::FONT_SIZE;
+use disk_mosaic_core::data::Data;
 use eframe::epaint::FontFamily::Proportional;
 use eframe::epaint::FontId;
 use egui::{Color32, Image, Pos2, Rect, Ui, Vec2, Widget};
@@ -30,7 +32,7 @@ impl<'a> DataWidget<'a> {
         let clip = ui.clip_rect();
         ui.set_clip_rect(rect);
 
-        Image::from(self.data.kind.get_image()).paint_at(
+        Image::from(get_image(&self.data.kind)).paint_at(
             ui,
             Rect::from_min_size(
                 rect.min + ui.spacing().item_spacing,
@@ -115,7 +117,7 @@ impl Widget for &mut DataWidget<'_> {
         ui.painter().rect(
             rect,
             egui::epaint::CornerRadius::ZERO,
-            self.data.color,
+            self.data.color.to_egui_color32(),
             egui::Stroke::new(1.0, Color32::BLACK),
             egui::StrokeKind::Inside,
         );

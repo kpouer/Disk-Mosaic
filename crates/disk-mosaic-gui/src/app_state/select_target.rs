@@ -1,15 +1,15 @@
-use crate::service::storage_manager::StorageManager;
-use crate::service::storage_manager::storage::Storage;
 use crate::settings::{ColorScheme, Settings};
-use crate::ui::about_dialog::AboutDialog;
-use crate::ui::settings_panel::SettingsContext;
-use crate::ui::settings_panel::SettingsDialog;
-use crate::util::{FONT_SIZE, PathBufToString};
 use egui::{Button, Color32, Image, Response, Tooltip, Ui, Vec2, Widget, include_image};
 use home::home_dir;
 use humansize::DECIMAL;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use disk_mosaic_core::util::PathBufToString;
+use crate::about_dialog::AboutDialog;
+use crate::FONT_SIZE;
+use crate::settings_panel::{SettingsContext, SettingsDialog};
+use crate::storage_manager::storage::Storage;
+use crate::storage_manager::StorageManager;
 
 #[derive(Debug)]
 pub(crate) struct SelectTarget {
@@ -54,7 +54,7 @@ impl SelectTarget {
                     let home_response = ui.add_sized(
                         Vec2::new(ui.available_width(), HEIGHT),
                         Button::image_and_text(
-                            Image::new(include_image!("../../../assets/home.svg"))
+                            Image::new(include_image!("../../../../assets/home.svg"))
                                 .tint(icon_color(&self.settings))
                                 .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
                             HOME_FOLDER,
@@ -66,7 +66,7 @@ impl SelectTarget {
                         Tooltip::for_widget(&home_response).at_pointer().show(|ui| {
                             ui.horizontal(|ui| {
                                 ui.add(
-                                    Image::new(include_image!("../../../assets/home.svg"))
+                                    Image::new(include_image!("../../../../assets/home.svg"))
                                         .tint(icon_color(&self.settings))
                                         .fit_to_exact_size(Vec2::new(FONT_SIZE, FONT_SIZE)),
                                 );
@@ -82,7 +82,7 @@ impl SelectTarget {
                     .add_sized(
                         Vec2::new(ui.available_width(), HEIGHT),
                         Button::image_and_text(
-                            Image::new(include_image!("../../../assets/directory.svg"))
+                            Image::new(include_image!("../../../../assets/directory.svg"))
                                 .tint(icon_color(&self.settings))
                                 .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
                             "Select Folder...",

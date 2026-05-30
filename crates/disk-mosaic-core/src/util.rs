@@ -3,8 +3,6 @@ use std::path::Path;
 use thiserror::Error;
 use unicode_normalization::UnicodeNormalization;
 
-pub(crate) const FONT_SIZE: f32 = 18.0;
-
 #[derive(Error, Debug)]
 pub(crate) enum MyError {
     #[error("IO Error")]
@@ -26,7 +24,7 @@ pub(crate) fn get_file_size(metadata: &Metadata) -> u64 {
         if physical < logical {
             return 0;
         }
-        return physical;
+        physical
     }
     #[cfg(not(unix))]
     {
@@ -36,7 +34,7 @@ pub(crate) fn get_file_size(metadata: &Metadata) -> u64 {
     }
 }
 
-pub(crate) trait PathBufToString {
+pub trait PathBufToString {
     fn name(&self) -> String;
     fn absolute_path(&self) -> String;
 }

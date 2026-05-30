@@ -1,6 +1,6 @@
 use crate::data::{Data, Kind};
-use crate::settings::Settings;
-use crate::ui::app_state::analyzer::{Message, ScanResult};
+use crate::model::message::Message;
+use crate::model::scan_result::ScanResult;
 use crate::util;
 use crate::util::{MyError, PathBufToString};
 use log::{debug, info, warn};
@@ -10,22 +10,22 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[derive(Debug)]
-pub(crate) struct DirectoryScanner<'a> {
+pub struct DirectoryScanner<'a, T> where T: ScanConfig{
     path: PathBuf,
     stopper: &'a Arc<AtomicBool>,
     sender: Sender<Message>,
-    settings: &'a Arc<Mutex<Settings>>,
+    settings: &'a T,
 }
 
-impl<'a> DirectoryScanner<'a> {
-    pub(crate) const fn new(
+impl<'a, T> DirectoryScanner<'a, T>  where T: ScanConfig{
+    const fn new(
         path: PathBuf,
         stopper: &'a Arc<AtomicBool>,
         sender: Sender<Message>,
-        settings: &'a Arc<Mutex<Settings>>,
+        settings: &'a T,
     ) -> Self {
         Self {
             path,
@@ -35,7 +35,7 @@ impl<'a> DirectoryScanner<'a> {
         }
     }
 
-    pub(crate) fn run(self) -> Data {
+    fn run(self) -> Data {
         let Self {
             path,
             stopper,
@@ -56,11 +56,11 @@ impl<'a> DirectoryScanner<'a> {
         data
     }
 
-    pub(crate) fn scan_directory_channel(
+    pub fn scan_directory_channel(
         path: &Path,
         sender: &Sender<Message>,
         stopper: &Arc<AtomicBool>,
-        settings: Arc<Mutex<Settings>>,
+        settings: T,
     ) {
         if let Err(e) = sender.send(Message::DirectoryScanStart(
             path.to_string_lossy().to_string(),
@@ -79,7 +79,6 @@ impl<'a> DirectoryScanner<'a> {
                     }
                     if path.is_dir() {
                         {
-                            let settings = settings.lock().unwrap();
                             if settings.is_path_ignored(&path) {
                                 info!("Ignoring path: {path:?}");
                                 return;
@@ -118,18 +117,19 @@ impl<'a> DirectoryScanner<'a> {
 }
 
 #[derive(Debug)]
-struct Scanner<'a> {
+struct Scanner<'a, T>
+where T: ScanConfig {
     stopper: &'a Arc<AtomicBool>,
     sender: &'a Sender<Message>,
-    settings: &'a Arc<Mutex<Settings>>,
+    settings: &'a T,
 }
 
-impl<'a> Scanner<'a> {
+impl<'a, T> Scanner<'a, T> where T: ScanConfig{
     const fn new(
         stopper: &'a Arc<AtomicBool>,
         sender: &'a Sender<Message>,
-        settings: &'a Arc<Mutex<Settings>>,
-    ) -> Scanner<'a> {
+        settings: &'a T,
+    ) -> Self {
         Self {
             stopper,
             sender,
@@ -145,7 +145,7 @@ impl<'a> Scanner<'a> {
             warn!("Received dropped {e}");
             return Err(MyError::ReceiverDropped);
         }
-        let big_file_threshold = self.settings.lock().unwrap().big_file_threshold();
+        let big_file_threshold = self.settings.big_file_threshold();
         let entries = match path.read_dir() {
             Ok(iter) => {
                 let iter = iter.flatten();
@@ -239,15 +239,14 @@ impl<'a> Scanner<'a> {
 
     fn process_dir(&self, entry_path: &PathBuf) -> Option<Data> {
         {
-            let settings = self.settings.lock().unwrap();
-            if settings.is_path_ignored(&entry_path) {
+            if self.settings.is_path_ignored(entry_path) {
                 info!("Ignoring path: {entry_path:?}");
                 return None;
             }
         }
-        match self.scan_directory_recursive(&entry_path) {
+        match self.scan_directory_recursive(entry_path) {
             Ok(grandchildren) => {
-                let mut dir_data = Data::new_directory(&entry_path);
+                let mut dir_data = Data::new_directory(entry_path);
                 dir_data.set_nodes(grandchildren);
                 Some(dir_data)
             }
@@ -257,4 +256,11 @@ impl<'a> Scanner<'a> {
             }
         }
     }
+}
+
+pub const BIG_FILE_THRESHOLD: u64 = 10000000;
+
+pub trait ScanConfig: Sync {
+    fn big_file_threshold(&self) -> u64;
+    fn is_path_ignored(&self, path: &Path) -> bool;
 }

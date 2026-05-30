@@ -1,90 +1,52 @@
 #![windows_subsystem = "windows"]
-mod analysis_result;
-mod data;
-mod disk_analyzer;
-mod service;
-mod settings;
-mod directory_sender;
-mod ui;
-mod util;
 
-use crate::settings::Settings;
-use crate::ui::text_ui::TextUi;
-use disk_analyzer::DiskAnalyzerApp;
-use egui_extras::install_image_loaders;
-use std::path::PathBuf;
+#[cfg(not(any(feature = "gui", feature = "tui")))]
+compile_error!("You must activate at least one feature among `gui` or `tui`.");
 
-fn main() -> eframe::Result {
+mod args;
+
+use clap::Parser;
+use crate::args::Args;
+
+fn main() -> Result<(), String> {
     env_logger::init();
+    let args = Args::parse();
 
-    let args: Vec<String> = std::env::args().collect();
-    let is_text_mode = args.iter().any(|arg| arg == "--text");
-
-    if is_text_mode {
-        // On raffine la recherche du chemin car le premier arg est souvent l'executable
-        let path = args
-            .get(1..)
-            .unwrap_or(&[])
-            .iter()
-            .find(|arg| *arg != "--text")
-            .map(PathBuf::from);
-
-        match path {
-            Some(p) if p.is_dir() => {
-                if let Err(e) = TextUi::run(p) {
-                    eprintln!("Error running text UI: {}", e);
-                    std::process::exit(1);
+    #[cfg(feature = "tui")]
+    {
+        if args.is_text_mode() {
+            let path = match &args.path {
+                Some(p) if p.is_dir() => {
+                    p.clone()
                 }
-                return Ok(());
-            }
-            Some(p) => {
-                eprintln!("Error: Path provided is not a directory: {:?}", p);
-                std::process::exit(1);
-            }
-            None => {
-                eprintln!("Error: Path to scan is mandatory when using --text");
-                eprintln!("Usage: disk-mosaic --text <path>");
-                std::process::exit(1);
-            }
+                Some(p) => {
+                    if let Some(parent) = p.parent() && parent.is_dir() {
+                        parent.to_path_buf()
+                    } else {
+                        eprintln!("Error: Path provided is not a directory: {p:?}");
+                        std::process::exit(1);
+                    }
+                }
+                None => {
+                    std::path::PathBuf::from(".")
+                }
+            };
+
+            return disk_mosaic_tui::start(path);
         }
     }
 
-    // Parse optional CLI path argument: if provided and valid, start scanning immediately
-    let initial_path: Option<PathBuf> = std::env::args().nth(1).map(PathBuf::from).and_then(|p| {
-        if p.is_dir() {
-            Some(p)
-        } else {
-            log::warn!("Path provided on CLI is not a readable directory: {:?}", p);
-            None
-        }
-    });
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_app_id("disk-mosaic")
-            .with_icon(icon_data())
-            .with_min_inner_size([320.0, 200.0]),
-        ..Default::default()
-    };
-    eframe::run_native(
-        "Disk Mosaic",
-        options,
-        Box::new(move |ctx| {
-            install_image_loaders(&ctx.egui_ctx);
-            let settings = Settings::default();
-            settings.init(&ctx.egui_ctx);
-            Ok(Box::new(DiskAnalyzerApp::new(
-                settings,
-                initial_path.clone(),
-            )))
-        }),
-    )
-}
+    #[cfg(feature = "gui")]
+    {
+        let initial_path = match &args.path {
+            Some(p) if p.is_dir() => Some(p.to_owned()),
+            _ => None,
+        };
+        disk_mosaic_gui::start(initial_path)
+    }
 
-fn icon_data() -> egui::IconData {
-    let app_icon_png_bytes = include_bytes!("../media/icon.png");
-
-    match eframe::icon_data::from_png_bytes(app_icon_png_bytes) {
-        Ok(icon_data) => icon_data,
-        Err(err) => panic!("Failed to load app icon: {err}"),
+    #[cfg(not(feature = "gui"))]
+    {
+        Err("GUI feature is not enabled. Run with text mode enabled or build with the `gui` feature.".to_string())
     }
 }

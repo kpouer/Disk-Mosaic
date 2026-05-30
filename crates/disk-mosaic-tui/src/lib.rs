@@ -1,30 +1,40 @@
-use crate::analysis_result::AnalysisResult;
-use crate::data::{Data, Kind};
+mod settings;
+
 use crate::settings::Settings;
-use crate::directory_sender::DirectoryScanner;
-use crate::ui::app_state::analyzer::Message;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use disk_mosaic_core::analysis_result::AnalysisResult;
+use disk_mosaic_core::data::{Data, Kind};
+use disk_mosaic_core::directory_scanner::DirectoryScanner;
+use disk_mosaic_core::model::message::Message;
 use humansize::DECIMAL;
 use ratatui::{
-    Terminal,
     backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout, Rect as RatatuiRect},
     style::{Color, Style},
     widgets::{Block, Borders, TableState},
+    Terminal,
 };
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use treemap::{Mappable, Rect, TreemapLayout};
 
+pub fn start(path: PathBuf) -> Result<(), String> {
+    if let Err(e) = TextUi::run(path) {
+        return Err(format!("Error running text UI: {e}"));
+    }
+
+    Ok(())
+}
+
 #[derive(Debug)]
-pub(crate) struct TextUi {
+pub struct TextUi {
     analysis_result: AnalysisResult,
     table_state: TableState,
     scanned_directories: u64,
@@ -34,7 +44,7 @@ pub(crate) struct TextUi {
 }
 
 impl TextUi {
-    pub(crate) fn run(path: PathBuf) -> io::Result<()> {
+    pub fn run(path: PathBuf) -> io::Result<()> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -72,16 +82,19 @@ impl TextUi {
     }
 
     fn run_loop<B: Backend>(mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
-        let settings = Arc::new(Mutex::new(Settings::default()));
         let stopper = Arc::new(AtomicBool::new(false));
         let (tx, rx) = std::sync::mpsc::channel();
 
-        let settings_clone = Arc::clone(&settings);
         let stopper_clone = Arc::clone(&stopper);
         let path_clone = self.analysis_result.root_path.clone();
 
         std::thread::spawn(move || {
-            DirectoryScanner::scan_directory_channel(&path_clone, &tx, &stopper_clone, settings_clone);
+            DirectoryScanner::scan_directory_channel(
+                &path_clone,
+                &tx,
+                &stopper_clone,
+                Settings,
+            );
         });
 
         let mut last_tick = Instant::now();
@@ -226,7 +239,7 @@ impl TextUi {
                     Constraint::Min(0),
                     Constraint::Length(3),
                 ]
-                .as_ref(),
+                    .as_ref(),
             )
             .split(f.area());
 

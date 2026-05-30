@@ -1,28 +1,25 @@
-use crate::settings::ColorScheme::Egui;
-use egui::Context;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::path::{Path, PathBuf};
 use strum_macros::{EnumIter, EnumString};
-
-const BIG_FILE_THRESHOLD: u64 = 10000000;
+use disk_mosaic_core::directory_scanner::BIG_FILE_THRESHOLD;
+use crate::settings::ColorScheme::Egui;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Settings {
     #[serde(skip)]
     /// Mark the Settings as dirty (need to be saved)
-    pub(crate) dirty: bool,
+    dirty: bool,
     color_scheme: ColorScheme,
     theme: ThemePreference,
     /// List of paths to ignore (might be cloud drives, etc.
     ignored_path: Vec<PathBuf>,
     /// Ignore common cloud folders like Dropbox, OneDrive, Google Drive, iCloud, etc.
     #[serde(default = "Settings::default_ignore_cloud_mounts")]
-    pub(crate) ignore_cloud_mounts: bool,
+    ignore_cloud_mounts: bool,
     /// Threshold for big files (in bytes). Files smaller than this will be displayed as a single block.
-    pub(crate) big_file_threshold: u64,
+    big_file_threshold: u64,
 }
 
 impl Default for Settings {
@@ -32,8 +29,8 @@ impl Default for Settings {
             .and_then(|settings_file| serde_json::from_reader::<File, Settings>(settings_file).ok())
             .unwrap_or(Self {
                 dirty: false,
-                color_scheme: Egui,
-                theme: ThemePreference::System,
+                                color_scheme: Egui,
+                                theme: ThemePreference::System,
                 ignored_path: Vec::new(),
                 ignore_cloud_mounts: true,
                 big_file_threshold: BIG_FILE_THRESHOLD,
@@ -42,6 +39,14 @@ impl Default for Settings {
 }
 
 impl Settings {
+    pub(crate) const fn ignore_cloud_mounts(&self) -> bool {
+        self.ignore_cloud_mounts
+    }
+
+    pub(crate) const fn set_dirty(&mut self, dirty: bool) {
+        self.dirty = dirty
+    }
+
     pub(crate) const fn color_scheme(&self) -> ColorScheme {
         self.color_scheme
     }
@@ -59,22 +64,24 @@ impl Settings {
         self.dirty = true;
     }
 
-    pub(crate) fn init(&self, ctx: &Context) {
+    pub(crate) fn init(&self, ctx: &egui::Context) {
         ctx.set_theme(self.theme);
         self.color_scheme.apply(ctx);
     }
+}
 
+impl Settings {
     pub(crate) fn add_ignored_path(&mut self, path: PathBuf) {
         info!("add ignored path: {path:?}");
         self.ignored_path.push(path);
         self.dirty = true;
     }
 
-    pub(crate) fn is_path_ignored(&self, path: &PathBuf) -> bool {
-        if self.ignored_path.contains(path) {
+    pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
+        if self.ignored_path.iter().any(|ignored_path| ignored_path == path) {
             return true;
         }
-        if self.ignore_cloud_mounts && Self::is_common_cloud_path(path.as_path()) {
+        if self.ignore_cloud_mounts && Self::is_common_cloud_path(path) {
             return true;
         }
         false
@@ -124,7 +131,7 @@ impl Settings {
         })
     }
 
-    fn is_common_cloud_path(path: &std::path::Path) -> bool {
+    fn is_common_cloud_path(path: &Path) -> bool {
         // Linux absolute mount points that often include cloud/special mounts
         #[cfg(target_os = "linux")]
         {
@@ -187,12 +194,12 @@ pub(crate) enum ColorScheme {
 }
 
 impl ColorScheme {
-    pub(crate) fn apply(&self, ctx: &Context) {
+    pub(crate) fn apply(&self, ctx: &egui::Context) {
         match self {
             Egui => {
                 ctx.options_mut(|options| {
-                    options.dark_style = Arc::new(egui::Theme::Dark.default_style());
-                    options.light_style = Arc::new(egui::Theme::Light.default_style());
+                    options.dark_style = std::sync::Arc::new(egui::Theme::Dark.default_style());
+                    options.light_style = std::sync::Arc::new(egui::Theme::Light.default_style());
                 });
             }
             ColorScheme::Solarized => egui_solarized::install(ctx),

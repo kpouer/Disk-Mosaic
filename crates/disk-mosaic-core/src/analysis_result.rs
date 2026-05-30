@@ -1,22 +1,22 @@
-use crate::data::{Data, Kind};
 use log::info;
 use std::path::PathBuf;
+use crate::data::{Data, Kind};
 
 #[derive(Debug, Default)]
-pub(crate) struct AnalysisResult {
-    pub(crate) root_path: PathBuf,
-    pub(crate) data_stack: Vec<Data>,
+pub struct AnalysisResult {
+    pub root_path: PathBuf,
+    pub data_stack: Vec<Data>,
 }
 
 impl AnalysisResult {
-    pub(crate) const fn new(root_path: PathBuf, data_stack: Vec<Data>) -> AnalysisResult {
+    pub const fn new(root_path: PathBuf, data_stack: Vec<Data>) -> AnalysisResult {
         Self {
             data_stack,
             root_path,
         }
     }
 
-    pub(crate) fn selected_index(&mut self, index: usize) {
+    pub fn selected_index(&mut self, index: usize) {
         while index < self.data_stack.len() - 1 {
             if let Some(popped_data) = self.data_stack.pop()
                 && let Some(parent_data) = self.data_stack.last_mut()

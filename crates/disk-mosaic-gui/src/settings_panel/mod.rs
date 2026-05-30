@@ -1,12 +1,12 @@
 mod folder_list_panel;
 
 use crate::settings::{ColorScheme, Settings, ThemePreference};
-use crate::ui::settings_panel::folder_list_panel::SearchFolderPanel;
 use egui::Ui;
 use humansize::DECIMAL;
 use std::ops::Index;
 use std::sync::{Arc, Mutex};
 use strum::IntoEnumIterator;
+use crate::settings_panel::folder_list_panel::SearchFolderPanel;
 
 #[derive(Debug)]
 pub(crate) struct SettingsDialog<'a> {
@@ -53,7 +53,7 @@ impl<'a> SettingsDialog<'a> {
                                 ColorScheme::iter().for_each(|scheme| {
                                     if ui
                                         .selectable_value(
-                                            settings.color_scheme_mut(),
+                                             settings.color_scheme_mut(),
                                             scheme,
                                             format!("{scheme:?}"),
                                         )
@@ -91,14 +91,14 @@ impl<'a> SettingsDialog<'a> {
                         ui.end_row();
                         ui.label("Big file threshold :");
                         let response = ui.add(
-                            egui::DragValue::new(&mut settings.big_file_threshold)
+                            egui::DragValue::new(&mut settings.big_file_threshold())
                                 .speed(1_000_000.0) // 1MB
                                 .custom_formatter(|size, _| {
                                     humansize::format_size(size as u64, DECIMAL)
                                 }),
                         );
                         if response.changed() {
-                            settings.dirty = true;
+                            settings.set_dirty(true);
                         }
                         if response.hovered() {
                             response.show_tooltip_text("Smaller will be be grouped as a remaining group without showing details. \
@@ -109,9 +109,9 @@ impl<'a> SettingsDialog<'a> {
                         }
                         ui.end_row();
                         ui.label("Ignore common cloud folders:");
-                        let chk = ui.checkbox(&mut settings.ignore_cloud_mounts, "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
+                        let chk = ui.checkbox(&mut settings.ignore_cloud_mounts(), "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
                         if chk.changed() {
-                            settings.dirty = true;
+                            settings.set_dirty(true);
                         }
                         ui.end_row();
                     });
@@ -125,7 +125,7 @@ impl<'a> SettingsDialog<'a> {
                 )
                 .show(ui);
                 if modified {
-                    settings.dirty = true;
+                    settings.set_dirty(true);
                 }
             });
     }
@@ -139,19 +139,19 @@ struct HashListPanel<'a, T> {
 }
 
 impl<T> HashListPanel<'_, T> {
-    pub(crate) fn push(&mut self, item: T) {
+    fn push(&mut self, item: T) {
         self.vec.push(item);
         self.dirty = true;
     }
 
-    pub(crate) fn remove_selection(&mut self) {
+    fn remove_selection(&mut self) {
         if let Some(selection) = *self.selection {
             self.vec.remove(selection);
             self.dirty = true;
         }
     }
 
-    pub(crate) const fn len(&self) -> usize {
+    const fn len(&self) -> usize {
         self.vec.len()
     }
 }
@@ -176,6 +176,6 @@ impl<'a, T> HashListPanel<'a, T> {
 
 #[derive(Default, Debug)]
 pub(crate) struct SettingsContext {
-    pub(crate) open: bool,
-    pub(crate) ignored_folders_selection: Option<usize>,
+    open: bool,
+    ignored_folders_selection: Option<usize>,
 }

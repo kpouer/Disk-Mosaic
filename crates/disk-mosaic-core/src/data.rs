@@ -1,23 +1,24 @@
 use crate::util::PathBufToString;
-use egui::{Color32, ImageSource, include_image};
 use log::{error, warn};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use crate::color::Color;
 use treemap::{Mappable, Rect};
+use crate::color;
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub(crate) struct Data {
+pub struct Data {
     pub(crate) depth: u16,
     /// The name of the file or directory
-    pub(crate) name: String,
-    pub(crate) size: u64,
-    pub(crate) bounds: treemap::Rect,
-    pub(crate) color: Color32,
-    pub(crate) kind: Kind,
+    pub name: String,
+    pub size: u64,
+    pub bounds: treemap::Rect,
+    pub color: Color,
+    pub kind: Kind,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) enum Kind {
+pub enum Kind {
     Dir(Vec<Data>),
     File,
     SmallFiles(u64),
@@ -29,20 +30,10 @@ impl Default for Kind {
     }
 }
 
-impl Kind {
-    pub(crate) const fn get_image(&self) -> ImageSource<'_> {
-        match self {
-            Kind::Dir(_) => include_image!("../assets/directory.svg"),
-            Kind::File => include_image!("../assets/file.svg"),
-            Kind::SmallFiles(_) => include_image!("../assets/file.svg"),
-        }
-    }
-}
-
 static INDEX: AtomicUsize = AtomicUsize::new(0);
 
 impl Data {
-    pub(crate) fn new_directory(path: &Path) -> Self {
+    pub fn new_directory(path: &Path) -> Self {
         Self {
             name: path.name(),
             kind: Kind::default(),
@@ -61,19 +52,19 @@ impl Data {
         }
     }
 
-    pub(crate) fn next_color() -> Color32 {
+    pub(crate) fn next_color() -> Color {
         let idx = INDEX
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
-                Some((v + 1) % egui_solarized::ACCENT_COLORS.len())
+                Some((v + 1) % color::ACCENT_COLORS.len())
             })
             .unwrap_or_else(|e| {
                 warn!("AtomicUsize error: {e}");
-                egui_solarized::ACCENT_COLORS.len()
+                color::ACCENT_COLORS.len()
             });
-        egui_solarized::ACCENT_COLORS[idx]
+        color::ACCENT_COLORS[idx]
     }
 
-    pub(crate) fn push(&mut self, child: Data) {
+    pub fn push(&mut self, child: Data) {
         if let Kind::Dir(children) = &mut self.kind {
             children.push(child);
         } else {
@@ -81,7 +72,7 @@ impl Data {
         }
     }
 
-    pub(crate) fn name(&self) -> &str {
+    pub fn name(&self) -> &str {
         &self.name
     }
 

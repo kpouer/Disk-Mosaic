@@ -1,13 +1,13 @@
-use crate::disk_analyzer::AppState::SelectDisk;
 use crate::settings::Settings;
-use crate::ui::app_state::analyzer::{Analyzer, AnalyzerUpdate};
-use crate::ui::app_state::result_view::ResultView;
-use crate::ui::app_state::select_target::SelectTarget;
 use eframe::Frame;
 use egui::{Context, Ui};
 use log::info;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use crate::app_state::analyzer::{Analyzer, AnalyzerUpdate};
+use crate::app_state::result_view::ResultView;
+use crate::app_state::select_target::SelectTarget;
+use crate::disk_analyzer::AppState::SelectDisk;
 
 #[derive(Debug)]
 enum AppState {

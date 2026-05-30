@@ -2,3 +2,6 @@
 /.junie/
 /.idea/
 .DS_Store
+/crates/disk-mosaic-core/Cargo.lock
+/crates/disk-mosaic-gui/Cargo.lock
+/crates/disk-mosaic-tui/Cargo.lock
