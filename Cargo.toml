@@ -12,6 +12,16 @@ readme = "README.md"
 keywords = ["desktop", "file", "folder", "disk"]
 categories = ["filesystem"]
 
+[[bin]]
+name = "dm"
+path = "src/main.rs"
+required-features = ["tui"]
+
+[[bin]]
+name = "DiskMosaic"
+path = "src/main.rs"
+required-features = ["gui"]
+
 [dependencies]
 clap = { version = "4.6", features = ["derive"] }
 env_logger = "0.11"
@@ -26,7 +36,6 @@ treemap = "0.3.2"
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1"
 
-
 [workspace]
 members = [
     "crates/disk-mosaic-core",
@@ -35,7 +44,7 @@ members = [
 ]
 
 [features]
-default = ["gui"]
+default = []
 gui = [
     "dep:disk-mosaic-gui",
 ]
