@@ -322,7 +322,7 @@ impl TextUi {
             footer_text.push_str(&format!(" | Scanning: {current_scanning_path}"));
         }
         let footer = ratatui::widgets::Paragraph::new(footer_text)
-            .block(Block::default().borders(Borders::ALL));
+            .block(Block::default().borders(Borders::TOP));
         f.render_widget(footer, chunks[3]);
     }
 
