@@ -1,16 +1,23 @@
 [package]
 name = "DiskMosaic"
 version = "0.2.0"
-edition = "2024"
+edition.workspace = true
 build = "build.rs"
-authors = ["Matthieu Casanova"]
+authors.workspace = true
 description = "Disk Mosaic is a disk utility helping you to identify biggest folders"
+license.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories = ["filesystem"]
+
+[workspace.package]
+authors = ["Matthieu Casanova"]
+edition = "2024"
+license = "MIT"
+keywords = ["desktop", "file", "folder", "disk"]
 homepage = "https://github.com/kpouer/Disk-Mosaic"
 repository = "https://github.com/kpouer/Disk-Mosaic"
-license = "MIT"
 readme = "README.md"
-keywords = ["desktop", "file", "folder", "disk"]
-categories = ["filesystem"]
 
 [[bin]]
 name = "dm"

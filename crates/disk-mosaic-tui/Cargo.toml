@@ -1,7 +1,10 @@
 [package]
 name = "disk-mosaic-tui"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
 
 [dependencies]
 crossterm = "0.29.0"
