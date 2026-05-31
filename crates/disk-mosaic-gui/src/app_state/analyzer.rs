@@ -145,6 +145,7 @@ impl Analyzer {
     }
 }
 
+#[derive(Debug)]
 struct ScannerConfig {
     big_file_threshold: u64,
     settings: Arc<Mutex<Settings>>,
