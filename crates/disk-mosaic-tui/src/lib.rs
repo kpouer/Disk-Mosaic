@@ -18,7 +18,6 @@ use ratatui::{
     style::{Color, Style},
     widgets::{Block, Borders, TableState},
 };
-use std::borrow::Cow;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
