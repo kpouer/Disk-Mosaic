@@ -244,7 +244,7 @@ impl TextUi {
         let full_path = names.join("/");
         let max_width = area.width as usize;
 
-        let display_path = if full_path.len() > max_width && names.len() > 1 {
+        if full_path.len() > max_width && names.len() > 1 {
             let first = names[0];
             let last = names.last().unwrap();
             let mut truncated = format!("{}/.../{}", first, last);
@@ -256,8 +256,7 @@ impl TextUi {
             truncated
         } else {
             full_path
-        };
-        display_path
+        }
     }
 
     fn ui(&mut self, f: &mut ratatui::Frame) {
