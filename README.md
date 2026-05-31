@@ -2,11 +2,14 @@
 
 ## Description
 
-Disk‑Mosaic is a disk‑usage visualization app written in Rust with egui. It scans a folder (or an entire drive) and 
-displays the space distribution as a treemap so you can quickly spot which directories and files take the most space.
+Disk‑Mosaic is a disk‑usage visualization app written in Rust that supports terminal and desktop mode. 
+It scans a folder (or an entire drive) and displays the space distribution as a treemap so you can quickly spot which 
+directories and files take the most space.
+
+
 
 Note: This is not a disk cleaning tool. It only displays the space distribution to help you spot which directories and 
-files take the most space.
+files take the most space but will not delete any file.
 
 ![Boot](media/screenshot.png)
 
@@ -14,7 +17,9 @@ files take the most space.
 
 ### Via cargo
 
+```shellscript
 cargo install Disk-Mosaic
+```
 
 ### Via releases
 
