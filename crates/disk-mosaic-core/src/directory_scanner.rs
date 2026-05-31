@@ -8,19 +8,25 @@ use rayon::prelude::*;
 use std::fs::DirEntry;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct DirectoryScanner<'a, T> where T: ScanConfig{
+pub struct DirectoryScanner<'a, T>
+where
+    T: ScanConfig,
+{
     path: PathBuf,
     stopper: &'a Arc<AtomicBool>,
     sender: Sender<Message>,
     settings: &'a T,
 }
 
-impl<'a, T> DirectoryScanner<'a, T>  where T: ScanConfig{
+impl<'a, T> DirectoryScanner<'a, T>
+where
+    T: ScanConfig,
+{
     const fn new(
         path: PathBuf,
         stopper: &'a Arc<AtomicBool>,
@@ -78,11 +84,9 @@ impl<'a, T> DirectoryScanner<'a, T>  where T: ScanConfig{
                         return;
                     }
                     if path.is_dir() {
-                        {
-                            if settings.is_path_ignored(&path) {
-                                info!("Ignoring path: {path:?}");
-                                return;
-                            }
+                        if settings.is_path_ignored(&path) {
+                            info!("Ignoring path: {path:?}");
+                            return;
                         }
                         let data =
                             DirectoryScanner::new(path, stopper, sender.clone(), &settings).run();
@@ -90,10 +94,9 @@ impl<'a, T> DirectoryScanner<'a, T>  where T: ScanConfig{
                             Self::send_message(sender, Message::Data(data));
                         }
                     } else if path.is_file() {
-                        let size = match path.metadata() {
-                            Ok(metadata) => util::get_file_size(&metadata),
-                            Err(_) => 0,
-                        };
+                        let size = path
+                            .metadata()
+                            .map_or(0, |metadata| util::get_file_size(&metadata));
                         scan_result.add_size(size);
                         Self::send_message(sender, Message::Data(Data::new_file(&path, size)));
                     }
@@ -118,13 +121,18 @@ impl<'a, T> DirectoryScanner<'a, T>  where T: ScanConfig{
 
 #[derive(Debug)]
 struct Scanner<'a, T>
-where T: ScanConfig {
+where
+    T: ScanConfig,
+{
     stopper: &'a Arc<AtomicBool>,
     sender: &'a Sender<Message>,
     settings: &'a T,
 }
 
-impl<'a, T> Scanner<'a, T> where T: ScanConfig{
+impl<'a, T> Scanner<'a, T>
+where
+    T: ScanConfig,
+{
     const fn new(
         stopper: &'a Arc<AtomicBool>,
         sender: &'a Sender<Message>,
