@@ -23,6 +23,7 @@ use std::io::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 use treemap::{Mappable, Rect, TreemapLayout};
 
@@ -110,28 +111,7 @@ impl TextUi {
             }
 
             // Receive data from scan thread
-            for message in rx.try_iter() {
-                match message {
-                    Message::Data(data) => {
-                        if data.size() > 0.0 {
-                            self.analysis_result
-                                .data_stack
-                                .last_mut()
-                                .unwrap()
-                                .push(data);
-                        }
-                    }
-                    Message::DirectoryScanStart(d) => {
-                        self.current_scanning_path = Some(d);
-                        self.scanned_directories += 1;
-                    }
-                    Message::DirectoryScanDone(res) => {
-                        self.current_scanning_path = None;
-                        self.file_count += res.file_count;
-                        self.total_size += res.size;
-                    }
-                }
-            }
+            self.handle_messages(&rx);
 
             if last_tick.elapsed() >= tick_rate {
                 last_tick = Instant::now();
@@ -140,6 +120,31 @@ impl TextUi {
                 // finishes when done.
                 // For simplicity, let's just keep scanning true until we decide otherwise or user quits.
                 // In the GUI, handle.is_finished() is used.
+            }
+        }
+    }
+
+    fn handle_messages(&mut self, rx: &Receiver<Message>) {
+        for message in rx.try_iter() {
+            match message {
+                Message::Data(data) => {
+                    if data.size() > 0.0 {
+                        self.analysis_result
+                            .data_stack
+                            .last_mut()
+                            .unwrap()
+                            .push(data);
+                    }
+                }
+                Message::DirectoryScanStart(d) => {
+                    self.current_scanning_path = Some(d);
+                    self.scanned_directories += 1;
+                }
+                Message::DirectoryScanDone(res) => {
+                    self.current_scanning_path = None;
+                    self.file_count += res.file_count;
+                    self.total_size += res.size;
+                }
             }
         }
     }
