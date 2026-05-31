@@ -233,6 +233,37 @@ impl TextUi {
         }
     }
 
+    fn render_path_bar(&self, f: &mut ratatui::Frame, area: RatatuiRect) {
+        let names: Vec<&str> = self
+            .analysis_result
+            .data_stack
+            .iter()
+            .map(|d| d.name.as_str())
+            .collect();
+
+        let full_path = names.join(" > ");
+        let max_width = area.width as usize;
+
+        let display_path = if full_path.len() > max_width && names.len() > 1 {
+            let first = names[0];
+            let last = names.last().unwrap();
+            let mut truncated = format!("{} > ... > {}", first, last);
+            if truncated.len() > max_width {
+                // Si même ça c'est trop long, on tronque juste la fin
+                truncated.truncate(max_width.saturating_sub(3));
+                truncated.push_str("...");
+            }
+            truncated
+        } else {
+            full_path
+        };
+
+        let paragraph = ratatui::widgets::Paragraph::new(display_path)
+            .block(Block::default().borders(Borders::BOTTOM))
+            .style(Style::default().fg(Color::Yellow));
+        f.render_widget(paragraph, area);
+    }
+
     fn ui(&mut self, f: &mut ratatui::Frame) {
         // Initialize selection if not set
         if self.table_state.selected().is_none() && self.get_children_count() > 0 {
@@ -245,6 +276,7 @@ impl TextUi {
             .constraints(
                 [
                     Constraint::Length(3),
+                    Constraint::Length(2),
                     Constraint::Min(0),
                     Constraint::Length(3),
                 ]
@@ -275,7 +307,9 @@ impl TextUi {
             .style(Style::default().fg(Color::Cyan));
         f.render_widget(header_text, chunks[0]);
 
-        self.render_treemap(f, chunks[1]);
+        self.render_path_bar(f, chunks[1]);
+
+        self.render_treemap(f, chunks[2]);
 
         // Footer
         let mut footer_text = if self.analysis_result.data_stack.len() > 1 {
@@ -289,7 +323,7 @@ impl TextUi {
         }
         let footer = ratatui::widgets::Paragraph::new(footer_text)
             .block(Block::default().borders(Borders::ALL));
-        f.render_widget(footer, chunks[2]);
+        f.render_widget(footer, chunks[3]);
     }
 
     fn render_treemap(&mut self, f: &mut ratatui::Frame, area: RatatuiRect) {
