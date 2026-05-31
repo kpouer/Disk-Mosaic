@@ -19,6 +19,7 @@ use ratatui::{
     widgets::{Block, Borders, TableState},
 };
 use std::io;
+use std::io::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -104,24 +105,8 @@ impl TextUi {
                 .checked_sub(last_tick.elapsed())
                 .unwrap_or_else(|| Duration::from_secs(0));
 
-            if event::poll(timeout)?
-                && let Event::Key(key) = event::read()?
-            {
-                match key.code {
-                    KeyCode::Char('q') => {
-                        stopper.store(true, Ordering::Relaxed);
-                        return Ok(());
-                    }
-                    KeyCode::Down | KeyCode::Right => self.next(),
-                    KeyCode::Up | KeyCode::Left => self.previous(),
-                    KeyCode::Enter => {
-                        if let Some(index) = self.table_state.selected() {
-                            self.zoom_in(index);
-                        }
-                    }
-                    KeyCode::Backspace | KeyCode::Esc => self.zoom_out(),
-                    _ => {}
-                }
+            if self.handle_keys(&stopper, timeout)? {
+                return Ok(());
             }
 
             // Receive data from scan thread
@@ -157,6 +142,29 @@ impl TextUi {
                 // In the GUI, handle.is_finished() is used.
             }
         }
+    }
+
+    fn handle_keys(&mut self, stopper: &Arc<AtomicBool>, timeout: Duration) -> Result<bool, Error> {
+        if event::poll(timeout)?
+            && let Event::Key(key) = event::read()?
+        {
+            match key.code {
+                KeyCode::Char('q') => {
+                    stopper.store(true, Ordering::Relaxed);
+                    return Ok(true);
+                }
+                KeyCode::Down | KeyCode::Right => self.next(),
+                KeyCode::Up | KeyCode::Left => self.previous(),
+                KeyCode::Enter => {
+                    if let Some(index) = self.table_state.selected() {
+                        self.zoom_in(index);
+                    }
+                }
+                KeyCode::Backspace | KeyCode::Esc => self.zoom_out(),
+                _ => {}
+            }
+        }
+        Ok(false)
     }
 
     fn next(&mut self) {
