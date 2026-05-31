@@ -1,2 +1,2 @@
-pub mod scan_result;
 pub mod message;
+pub mod scan_result;

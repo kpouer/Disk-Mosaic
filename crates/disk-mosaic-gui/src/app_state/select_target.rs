@@ -1,15 +1,15 @@
+use crate::FONT_SIZE;
+use crate::about_dialog::AboutDialog;
 use crate::settings::{ColorScheme, Settings};
+use crate::settings_panel::{SettingsContext, SettingsDialog};
+use crate::storage_manager::StorageManager;
+use crate::storage_manager::storage::Storage;
+use disk_mosaic_core::util::PathBufToString;
 use egui::{Button, Color32, Image, Response, Tooltip, Ui, Vec2, Widget, include_image};
 use home::home_dir;
 use humansize::DECIMAL;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use disk_mosaic_core::util::PathBufToString;
-use crate::about_dialog::AboutDialog;
-use crate::FONT_SIZE;
-use crate::settings_panel::{SettingsContext, SettingsDialog};
-use crate::storage_manager::storage::Storage;
-use crate::storage_manager::StorageManager;
 
 #[derive(Debug)]
 pub(crate) struct SelectTarget {

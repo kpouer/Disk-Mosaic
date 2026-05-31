@@ -1,6 +1,6 @@
+use crate::data::{Data, Kind};
 use log::info;
 use std::path::PathBuf;
-use crate::data::{Data, Kind};
 
 #[derive(Debug, Default)]
 pub struct AnalysisResult {

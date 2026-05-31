@@ -44,4 +44,5 @@ const CYAN: Color = Color::from_rgb(0x2a, 0xa1, 0x98);
 const GREEN: Color = Color::from_rgb(0x85, 0x99, 0x00);
 
 /// List of accent colors
-pub(crate) static ACCENT_COLORS: [Color; 8] = [YELLOW, ORANGE, RED, MAGENTA, VIOLET, BLUE, CYAN, GREEN];
+pub(crate) static ACCENT_COLORS: [Color; 8] =
+    [YELLOW, ORANGE, RED, MAGENTA, VIOLET, BLUE, CYAN, GREEN];

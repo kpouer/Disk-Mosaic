@@ -1,10 +1,10 @@
+use crate::settings::ColorScheme::Egui;
+use disk_mosaic_core::directory_scanner::BIG_FILE_THRESHOLD;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use strum_macros::{EnumIter, EnumString};
-use disk_mosaic_core::directory_scanner::BIG_FILE_THRESHOLD;
-use crate::settings::ColorScheme::Egui;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Settings {
@@ -29,8 +29,8 @@ impl Default for Settings {
             .and_then(|settings_file| serde_json::from_reader::<File, Settings>(settings_file).ok())
             .unwrap_or(Self {
                 dirty: false,
-                                color_scheme: Egui,
-                                theme: ThemePreference::System,
+                color_scheme: Egui,
+                theme: ThemePreference::System,
                 ignored_path: Vec::new(),
                 ignore_cloud_mounts: true,
                 big_file_threshold: BIG_FILE_THRESHOLD,
@@ -78,7 +78,11 @@ impl Settings {
     }
 
     pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
-        if self.ignored_path.iter().any(|ignored_path| ignored_path == path) {
+        if self
+            .ignored_path
+            .iter()
+            .any(|ignored_path| ignored_path == path)
+        {
             return true;
         }
         if self.ignore_cloud_mounts && Self::is_common_cloud_path(path) {

@@ -1,6 +1,6 @@
+use crate::FONT_SIZE;
 use crate::color::ToEguiColor32;
 use crate::data::get_image;
-use crate::FONT_SIZE;
 use disk_mosaic_core::data::Data;
 use eframe::epaint::FontFamily::Proportional;
 use eframe::epaint::FontId;

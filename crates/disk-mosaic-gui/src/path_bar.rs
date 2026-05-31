@@ -1,5 +1,5 @@
-use egui::{Button, Ui, Vec2};
 use disk_mosaic_core::analysis_result::AnalysisResult;
+use egui::{Button, Ui, Vec2};
 
 #[derive(Debug)]
 pub(crate) struct PathBar<'a> {

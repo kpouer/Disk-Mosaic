@@ -11,10 +11,10 @@ use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
 use std::thread;
 use std::time::Duration;
 use treemap::Mappable;
@@ -50,7 +50,12 @@ impl Analyzer {
         let settings_copy = Arc::clone(&settings);
         let handle = thread::spawn(move || {
             let start = std::time::Instant::now();
-            DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, ScannerConfig::new(settings_copy));
+            DirectoryScanner::scan_directory_channel(
+                &root_copy,
+                &tx,
+                &stopper_copy,
+                ScannerConfig::new(settings_copy),
+            );
             info!("Done in {}ms", start.elapsed().as_millis());
         });
         let root_data = Data::new_directory(&root);
@@ -156,7 +161,7 @@ impl ScannerConfig {
         let big_file_threshold = settings.lock().unwrap().big_file_threshold();
         Self {
             big_file_threshold,
-            settings
+            settings,
         }
     }
 }

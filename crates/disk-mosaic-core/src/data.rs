@@ -1,10 +1,10 @@
+use crate::color;
+use crate::color::Color;
 use crate::util::PathBufToString;
 use log::{error, warn};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use crate::color::Color;
 use treemap::{Mappable, Rect};
-use crate::color;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Data {

@@ -1,13 +1,13 @@
+use crate::data_widget::DataWidget;
 use crate::settings::Settings;
+use disk_mosaic_core::analysis_result::AnalysisResult;
+use disk_mosaic_core::data::{Data, Kind};
 use egui::{Event, Label, Response, TextWrapMode, Tooltip, Ui, UiKind, Widget};
 use humansize::DECIMAL;
 use log::error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use treemap::{Mappable, Rect, TreemapLayout};
-use disk_mosaic_core::analysis_result::AnalysisResult;
-use disk_mosaic_core::data::{Data, Kind};
-use crate::data_widget::DataWidget;
 
 #[derive(Debug)]
 pub(crate) struct TreeMapPanel<'a> {

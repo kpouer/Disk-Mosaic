@@ -1,12 +1,12 @@
 mod folder_list_panel;
 
 use crate::settings::{ColorScheme, Settings, ThemePreference};
+use crate::settings_panel::folder_list_panel::SearchFolderPanel;
 use egui::Ui;
 use humansize::DECIMAL;
 use std::ops::Index;
 use std::sync::{Arc, Mutex};
 use strum::IntoEnumIterator;
-use crate::settings_panel::folder_list_panel::SearchFolderPanel;
 
 #[derive(Debug)]
 pub(crate) struct SettingsDialog<'a> {

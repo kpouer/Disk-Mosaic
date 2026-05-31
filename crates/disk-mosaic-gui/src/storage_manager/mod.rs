@@ -1,5 +1,5 @@
-use sysinfo::Disks;
 use crate::storage_manager::storage::Storage;
+use sysinfo::Disks;
 
 pub(crate) mod storage;
 

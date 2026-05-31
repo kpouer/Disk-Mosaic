@@ -1,5 +1,5 @@
-use clap::Parser;
 use crate::args::Args;
+use clap::Parser;
 
 fn main() -> Result<(), String> {
     env_logger::init();

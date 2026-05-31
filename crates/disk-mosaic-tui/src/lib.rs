@@ -233,7 +233,7 @@ impl TextUi {
         }
     }
 
-    fn render_path_bar(&self, f: &mut ratatui::Frame, area: RatatuiRect) {
+    fn build_path_bar_path(&self, area: &RatatuiRect) -> String {
         let names: Vec<&str> = self
             .analysis_result
             .data_stack
@@ -241,13 +241,13 @@ impl TextUi {
             .map(|d| d.name.as_str())
             .collect();
 
-        let full_path = names.join(" > ");
+        let full_path = names.join("/");
         let max_width = area.width as usize;
 
         let display_path = if full_path.len() > max_width && names.len() > 1 {
             let first = names[0];
             let last = names.last().unwrap();
-            let mut truncated = format!("{} > ... > {}", first, last);
+            let mut truncated = format!("{}/.../{}", first, last);
             if truncated.len() > max_width {
                 // Si même ça c'est trop long, on tronque juste la fin
                 truncated.truncate(max_width.saturating_sub(3));
@@ -257,11 +257,7 @@ impl TextUi {
         } else {
             full_path
         };
-
-        let paragraph = ratatui::widgets::Paragraph::new(display_path)
-            .block(Block::default().borders(Borders::BOTTOM))
-            .style(Style::default().fg(Color::Yellow));
-        f.render_widget(paragraph, area);
+        display_path
     }
 
     fn ui(&mut self, f: &mut ratatui::Frame) {
@@ -276,7 +272,6 @@ impl TextUi {
             .constraints(
                 [
                     Constraint::Length(3),
-                    Constraint::Length(2),
                     Constraint::Min(0),
                     Constraint::Length(3),
                 ]
@@ -284,10 +279,10 @@ impl TextUi {
             )
             .split(f.area());
 
-        let root_path = self.analysis_result.root_path.to_string_lossy();
+        let path_bar = self.build_path_bar_path(&chunks[0]);
         let title = Block::default()
             .borders(Borders::ALL)
-            .title(format!(" Disk Mosaic - {} ", root_path));
+            .title(format!(" Disk Mosaic - {path_bar} "));
 
         let root = self.analysis_result.data_stack.last().unwrap();
         let total_size = if let Kind::Dir(children) = &root.kind {
@@ -307,9 +302,7 @@ impl TextUi {
             .style(Style::default().fg(Color::Cyan));
         f.render_widget(header_text, chunks[0]);
 
-        self.render_path_bar(f, chunks[1]);
-
-        self.render_treemap(f, chunks[2]);
+        self.render_treemap(f, chunks[1]);
 
         // Footer
         let mut footer_text = if self.analysis_result.data_stack.len() > 1 {
@@ -323,7 +316,7 @@ impl TextUi {
         }
         let footer = ratatui::widgets::Paragraph::new(footer_text)
             .block(Block::default().borders(Borders::TOP));
-        f.render_widget(footer, chunks[3]);
+        f.render_widget(footer, chunks[2]);
     }
 
     fn render_treemap(&mut self, f: &mut ratatui::Frame, area: RatatuiRect) {

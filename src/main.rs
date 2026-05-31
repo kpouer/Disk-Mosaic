@@ -4,13 +4,13 @@
 compile_error!("You must activate at least one feature among `gui` or `tui`.");
 
 mod args;
-#[cfg(feature = "tui")]
-mod tui_app;
 #[cfg(feature = "gui")]
 mod gui_app;
+#[cfg(feature = "tui")]
+mod tui_app;
 
-use clap::Parser;
 use crate::args::Args;
+use clap::Parser;
 
 fn main() -> Result<(), String> {
     env_logger::init();
