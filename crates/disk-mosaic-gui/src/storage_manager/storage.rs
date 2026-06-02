@@ -29,13 +29,13 @@ impl From<&Disk> for Storage {
 impl Storage {
     pub(crate) const fn icon(&self) -> ImageSource<'_> {
         match self.kind {
-            DiskKind::HDD => include_image!("../../../../assets/hdd.svg"),
-            DiskKind::SSD => include_image!("../../../../assets/ssd.svg"),
+            DiskKind::HDD => include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/hdd.svg")),
+            DiskKind::SSD => include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ssd.svg")),
             DiskKind::Unknown(_) => {
                 if self.removable {
-                    include_image!("../../../../assets/removable.svg")
+                    include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/removable.svg"))
                 } else {
-                    include_image!("../../../../assets/ssd.svg")
+                    include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/ssd.svg"))
                 }
             }
         }
