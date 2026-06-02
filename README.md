@@ -20,13 +20,13 @@ files take the most space but will not delete any file.
 #### Desktop version (GUI)
 
 ```shellscript
-cargo install DiskMosaic --features gui
+cargo install Disk-Mosaic --features gui
 ```
 
 #### Terminal version (TUI)
 
 ```shellscript
-cargo install DiskMosaic --features tui
+cargo install Disk-Mosaic --features tui
 ```
 
 ### Via releases
