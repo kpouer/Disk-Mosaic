@@ -8,7 +8,13 @@ description = "Disk Mosaic is a disk utility helping you to identify biggest fol
 license.workspace = true
 readme.workspace = true
 keywords.workspace = true
-categories = ["filesystem"]
+categories = ["filesystem", "visualization"]
+exclude = [
+    ".cargo-husky/",
+    ".github/",
+    ".idea/",
+    ".junie",
+]
 
 [workspace.package]
 authors = ["Matthieu Casanova"]
