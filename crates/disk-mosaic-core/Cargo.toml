@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 keywords.workspace = true
+description = "This is a library used for Terminal User Interface of https://crates.io/crates/Disk-Mosaic"
 readme = "README.md"
 
 [dependencies]

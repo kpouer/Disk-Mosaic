@@ -5,6 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 keywords.workspace = true
+description = "The terminal user interface (TUI) for Disk Mosaic, built with `ratatui`."
 readme = "README.md"
 
 [dependencies]
