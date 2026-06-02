@@ -17,8 +17,16 @@ files take the most space but will not delete any file.
 
 ### Via cargo
 
+#### Desktop version (GUI)
+
 ```shellscript
-cargo install Disk-Mosaic
+cargo install DiskMosaic --features gui
+```
+
+#### Terminal version (TUI)
+
+```shellscript
+cargo install DiskMosaic --features tui
 ```
 
 ### Via releases
