@@ -26,7 +26,7 @@ cargo install Disk-Mosaic --features gui
 #### Terminal version (TUI)
 
 ```shellscript
-cargo install Disk-Mosaic --features tui
+cargo install Disk-Mosaic --bin dm --no-default-features --features tui
 ```
 
 ### Via releases
