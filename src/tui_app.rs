@@ -9,10 +9,6 @@ use clap::Parser;
 fn main() -> Result<(), String> {
     env_logger::init();
     let args = Args::parse();
-    start_tui(&args)
-}
-
-pub(crate) fn start_tui(args: &Args) -> Result<(), String> {
     let path = match &args.path {
         Some(p) if p.is_dir() => p.clone(),
         Some(p) => {
