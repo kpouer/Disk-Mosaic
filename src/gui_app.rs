@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 #[cfg(not(feature = "gui"))]
 compile_error!("You must activate at least one feature among `gui`.");
