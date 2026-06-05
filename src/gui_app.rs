@@ -1,11 +1,4 @@
 use crate::args::Args;
-use clap::Parser;
-
-fn main() -> Result<(), String> {
-    env_logger::init();
-    let args = Args::parse();
-    start_gui(&args)
-}
 
 pub(crate) fn start_gui(args: &Args) -> Result<(), String> {
     let initial_path = match &args.path {
