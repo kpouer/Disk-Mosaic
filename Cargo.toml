@@ -27,12 +27,12 @@ readme = "README.md"
 
 [[bin]]
 name = "dm"
-path = "src/main.rs"
+path = "src/tui_app.rs"
 required-features = ["tui"]
 
 [[bin]]
 name = "DiskMosaic"
-path = "src/main.rs"
+path = "src/gui_app.rs"
 required-features = ["gui"]
 
 [dependencies]

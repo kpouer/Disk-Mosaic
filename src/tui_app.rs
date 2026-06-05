@@ -1,4 +1,16 @@
+#[cfg(not(feature = "gui"))]
+compile_error!("tui app is text only, do not activate gui feature. Use bin DiskMosaic instead");
+
+mod args;
+
 use crate::args::Args;
+use clap::Parser;
+
+fn main() -> Result<(), String> {
+    env_logger::init();
+    let args = Args::parse();
+    start_tui(&args)
+}
 
 pub(crate) fn start_tui(args: &Args) -> Result<(), String> {
     let path = match &args.path {
