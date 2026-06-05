@@ -77,8 +77,7 @@ where
         let mut scan_result = ScanResult::default();
         match path.read_dir() {
             Ok(iter) => {
-                let vec = iter.collect::<Vec<_>>();
-                vec.iter().flatten().map(|p| p.path()).for_each(|path| {
+                iter.flatten().map(|p| p.path()).for_each(|path| {
                     if stopper.load(Ordering::Relaxed) {
                         info!("Stop requested");
                         return;
