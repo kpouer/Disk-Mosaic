@@ -30,7 +30,7 @@ pub(crate) fn get_file_size(metadata: &Metadata) -> u64 {
     {
         // On non-Unix targets, fall back to logical file size.
         // Detecting sparse files portably requires platform-specific APIs which we avoid here.
-        metadata.map(|m| m.len()).unwrap_or(0)
+        metadata.len()
     }
 }
 
