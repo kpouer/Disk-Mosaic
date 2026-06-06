@@ -52,6 +52,16 @@ impl Data {
         }
     }
 
+    pub(crate) fn remaining(count: u64, size: u64) -> Self {
+        Self {
+            name: "Remaining".to_string(),
+            kind: Kind::SmallFiles(count),
+            size,
+            color: Data::next_color(),
+            ..Default::default()
+        }
+    }
+
     pub(crate) fn next_color() -> Color {
         let idx = INDEX
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
