@@ -5,9 +5,9 @@ use crate::util;
 use crate::util::{MyError, PathBufToString};
 use log::{debug, info, warn};
 use rayon::prelude::*;
-use std::fs::DirEntry;
+use std::fs::{DirEntry, ReadDir};
 use std::io::ErrorKind;
-use std::iter::Flatten;
+use std::iter::{Filter, Flatten};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -238,7 +238,7 @@ where
         let (mut data, count_and_size) = entries
             .par_bridge()
             .fold(
-                || ChildrenAccumulator::default(),
+                ChildrenAccumulator::default,
                 |accumulator, entry| self.fold_children(big_file_threshold, accumulator, entry),
             )
             .reduce(ChildrenAccumulator::default, merge_children_accumulators);

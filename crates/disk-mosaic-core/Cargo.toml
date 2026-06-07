@@ -1,6 +1,6 @@
 [package]
 name = "disk-mosaic-core"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -9,8 +9,13 @@ description = "This is a library used for Terminal User Interface of https://cra
 readme = "README.md"
 
 [dependencies]
+ecolor = { workspace = true, optional = true }
 log = { workspace = true }
 rayon = "1.12.0"
 thiserror = "2.0"
 treemap = { workspace = true }
 unicode-normalization = "0.1.25"
+
+[features]
+default = []
+gui = ["dep:ecolor"]

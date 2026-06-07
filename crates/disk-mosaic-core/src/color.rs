@@ -34,6 +34,13 @@ impl Color {
     }
 }
 
+#[cfg(feature = "gui")]
+impl From<Color> for ecolor::Color32 {
+    fn from(value: Color) -> Self {
+        ecolor::Color32::from_rgb(value.r, value.g, value.b)
+    }
+}
+
 const YELLOW: Color = Color::from_rgb(0xb5, 0x89, 0x00);
 const ORANGE: Color = Color::from_rgb(0xcb, 0x4b, 0x16);
 const RED: Color = Color::from_rgb(0xdc, 0x32, 0x2f);

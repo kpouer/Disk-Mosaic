@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 mod about_dialog;
 mod app_state;
-mod color;
 mod data;
 mod data_widget;
 mod disk_analyzer;

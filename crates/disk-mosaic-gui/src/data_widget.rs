@@ -1,5 +1,4 @@
 use crate::FONT_SIZE;
-use crate::color::ToEguiColor32;
 use crate::data::get_image;
 use disk_mosaic_core::data::Data;
 use eframe::epaint::FontFamily::Proportional;
@@ -117,7 +116,7 @@ impl Widget for &mut DataWidget<'_> {
         ui.painter().rect(
             rect,
             egui::epaint::CornerRadius::ZERO,
-            self.data.color.to_egui_color32(),
+            self.data.color,
             egui::Stroke::new(1.0, Color32::BLACK),
             egui::StrokeKind::Inside,
         );

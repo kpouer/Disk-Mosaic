@@ -9,10 +9,14 @@ description = "This is a library used for Terminal User Interface of https://cra
 readme = "README.md"
 
 [dependencies]
-disk-mosaic-core = { path = "../disk-mosaic-core", version = "0.1.0" }
-egui = "0.34"
-egui_extras = { version = "0.34", features = ["svg"] }
-eframe = "0.34"
+disk-mosaic-core = {
+    path = "../disk-mosaic-core",
+    version = "0.1.1",
+    features = ["gui"]
+}
+egui.workspace = true
+egui_extras = { workspace = true, features = ["svg"] }
+eframe.workspace = true
 egui_solarized = "0.34"
 home = { workspace = true }
 humansize = "2.1.3"
