@@ -11,9 +11,9 @@ use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 use treemap::Mappable;
@@ -46,15 +46,10 @@ impl Analyzer {
         let stopper = Arc::new(AtomicBool::new(false));
         let root_copy = root.clone();
         let stopper_copy = stopper.clone();
-        let settings_copy = Arc::clone(&settings);
+        let settings_copy = settings.read().unwrap().clone();
         let handle = thread::spawn(move || {
             let start = std::time::Instant::now();
-            DirectoryScanner::scan_directory_channel(
-                &root_copy,
-                &tx,
-                &stopper_copy,
-                ScannerConfig::new(settings_copy),
-            );
+            DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
             info!("Done in {}ms", start.elapsed().as_millis());
         });
         let root_data = Data::new_directory(&root);
@@ -149,28 +144,12 @@ impl Analyzer {
     }
 }
 
-#[derive(Debug)]
-struct ScannerConfig {
-    big_file_threshold: u64,
-    settings: Arc<RwLock<Settings>>,
-}
-
-impl ScannerConfig {
-    fn new(settings: Arc<RwLock<Settings>>) -> Self {
-        let big_file_threshold = settings.read().unwrap().big_file_threshold();
-        Self {
-            big_file_threshold,
-            settings,
-        }
-    }
-}
-
-impl ScanConfig for ScannerConfig {
+impl ScanConfig for Settings {
     fn big_file_threshold(&self) -> u64 {
-        self.big_file_threshold
+        self.big_file_threshold()
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
-        self.settings.read().unwrap().is_path_ignored(path)
+        self.is_path_ignored(path)
     }
 }

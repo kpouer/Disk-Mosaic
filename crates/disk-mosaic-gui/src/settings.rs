@@ -6,7 +6,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use strum_macros::{EnumIter, EnumString};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct Settings {
     #[serde(skip)]
     /// Mark the Settings as dirty (need to be saved)
