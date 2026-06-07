@@ -130,15 +130,15 @@ impl<'a> TreeMapPanel<'a> {
                 ui.close_kind(UiKind::Menu);
             }
             if ui.button("Copy parent path").clicked() {
-                let text = full_path.to_string_lossy().to_string();
-                ui.ctx().copy_text(text);
+                let text = full_path.to_string_lossy();
+                ui.ctx().copy_text(text.into());
                 ui.close_kind(UiKind::Menu);
             }
             if ui.button("Copy full path").clicked() {
                 let mut path = full_path.clone();
                 path.push(&data.name);
-                let text = path.to_string_lossy().to_string();
-                ui.ctx().copy_text(text);
+                let text = path.to_string_lossy();
+                ui.ctx().copy_text(text.into());
                 ui.close_kind(UiKind::Menu);
             }
             if ui.button("Ignore path").clicked() {
