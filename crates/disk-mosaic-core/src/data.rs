@@ -3,7 +3,6 @@ use crate::color::Color;
 use crate::directory_scanner::CountAndSize;
 use crate::util::PathBufToString;
 use log::{error, warn};
-use std::env::current_dir;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use treemap::{Mappable, Rect};

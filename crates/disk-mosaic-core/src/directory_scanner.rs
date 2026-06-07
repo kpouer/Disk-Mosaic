@@ -5,14 +5,14 @@ use crate::util;
 use crate::util::{MyError, PathBufToString};
 use log::{debug, info, warn};
 use rayon::prelude::*;
-use std::fs::{DirEntry, ReadDir};
+use std::fs::DirEntry;
 use std::io::ErrorKind;
-use std::iter::{Filter, Flatten};
+use std::iter::Flatten;
 use std::ops::Add;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct DirectoryScanner<'a, T>
@@ -120,6 +120,8 @@ where
     }
 }
 
+type ChildrenAccumulator = (Vec<Data>, CountAndSize);
+
 #[derive(Debug)]
 struct Scanner<'a, T>
 where
@@ -180,7 +182,7 @@ where
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    fn entry_iterator(path: &Path) -> Option<Flatten<fs::ReadDir>> {
+    fn entry_iterator(path: &Path) -> Option<Flatten<std::fs::ReadDir>> {
         match path.read_dir() {
             Ok(iter) => {
                 let iter = iter.flatten();
@@ -236,47 +238,48 @@ where
         let (mut data, count_and_size) = entries
             .par_bridge()
             .fold(
-                || (Vec::new(), CountAndSize::default()),
-                |(mut items, mut count_and_size), entry| {
-                    if self.stopper.load(Ordering::Relaxed) {
-                        return (items, count_and_size);
-                    }
-
-                    let entry_path = entry.path();
-                    let metadata = match entry.metadata() {
-                        Ok(m) => m,
-                        Err(e) => {
-                            debug!("Failed to get metadata for {entry_path:?}: {e}");
-                            return (items, count_and_size);
-                        }
-                    };
-                    if metadata.is_dir() {
-                        if let Some(dir_data) = self.process_dir(&entry_path) {
-                            items.push(dir_data);
-                        }
-                    } else if metadata.is_file() {
-                        let file_size = util::get_file_size(&metadata);
-                        if file_size < big_file_threshold {
-                            count_and_size.push(file_size);
-                        } else {
-                            items.push(Data::new_file(&entry_path, file_size));
-                        }
-                    }
-                    (items, count_and_size)
-                },
+                || ChildrenAccumulator::default(),
+                |accumulator, entry| self.fold_children(big_file_threshold, accumulator, entry),
             )
-            .reduce(
-                || (Vec::new(), CountAndSize::default()),
-                |(mut items_l, left), (items_r, right)| {
-                    items_l.extend(items_r);
-                    (items_l, left + right)
-                },
-            );
+            .reduce(ChildrenAccumulator::default, merge_children_accumulators);
         if count_and_size.size > 0 {
             data.push(Data::remaining(count_and_size));
         }
 
         data
+    }
+
+    fn fold_children(
+        &self,
+        big_file_threshold: u64,
+        (mut items, mut count_and_size): ChildrenAccumulator,
+        entry: DirEntry,
+    ) -> ChildrenAccumulator {
+        if self.stopper.load(Ordering::Relaxed) {
+            return (items, count_and_size);
+        }
+
+        let entry_path = entry.path();
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(e) => {
+                debug!("Failed to get metadata for {entry_path:?}: {e}");
+                return (items, count_and_size);
+            }
+        };
+        if metadata.is_dir() {
+            if let Some(dir_data) = self.process_dir(&entry_path) {
+                items.push(dir_data);
+            }
+        } else if metadata.is_file() {
+            let file_size = util::get_file_size(&metadata);
+            if file_size < big_file_threshold {
+                count_and_size.push(file_size);
+            } else {
+                items.push(Data::new_file(&entry_path, file_size));
+            }
+        }
+        (items, count_and_size)
     }
 
     fn process_dir(&self, entry_path: &PathBuf) -> Option<Data> {
@@ -328,4 +331,12 @@ impl Add<CountAndSize> for CountAndSize {
         self.size += rhs.size;
         self
     }
+}
+
+fn merge_children_accumulators(
+    (mut left_children, left_count_and_size): ChildrenAccumulator,
+    (right_children, right_count_and_size): ChildrenAccumulator,
+) -> ChildrenAccumulator {
+    left_children.extend(right_children);
+    (left_children, left_count_and_size + right_count_and_size)
 }
