@@ -64,7 +64,7 @@ impl Data {
 
     pub(crate) fn next_color() -> Color {
         let idx = INDEX
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
                 Some((v + 1) % color::ACCENT_COLORS.len())
             })
             .unwrap_or_else(|e| {
