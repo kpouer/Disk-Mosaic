@@ -43,6 +43,7 @@ impl SelectTarget {
         });
         egui::CentralPanel::default()
             .show_inside(ui, |ui| {
+                let tint_color = icon_color(self.settings.read().unwrap().color_scheme());
                 let mut selected_path = None;
                 self.storage_manager.iter().for_each(|disk| {
                     if StorageWidget::new(disk, &self.settings).ui(ui).clicked() {
@@ -58,7 +59,7 @@ impl SelectTarget {
                                 env!("CARGO_MANIFEST_DIR"),
                                 "/assets/home.svg"
                             )))
-                            .tint(icon_color(&self.settings))
+                            .tint(tint_color)
                             .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
                             HOME_FOLDER,
                         ),
@@ -73,7 +74,7 @@ impl SelectTarget {
                                         env!("CARGO_MANIFEST_DIR"),
                                         "/assets/home.svg"
                                     )))
-                                    .tint(icon_color(&self.settings))
+                                    .tint(tint_color)
                                     .fit_to_exact_size(Vec2::new(FONT_SIZE, FONT_SIZE)),
                                 );
                                 ui.heading(HOME_FOLDER);
@@ -92,7 +93,7 @@ impl SelectTarget {
                                 env!("CARGO_MANIFEST_DIR"),
                                 "/assets/directory.svg"
                             )))
-                            .tint(icon_color(&self.settings))
+                            .tint(tint_color)
                             .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
                             "Select Folder...",
                         ),
@@ -125,7 +126,7 @@ const HEIGHT: f32 = 48.0;
 impl Widget for StorageWidget<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let image = egui::Image::new(self.storage.icon())
-            .tint(icon_color(self.settings))
+            .tint(icon_color(self.settings.read().unwrap().color_scheme()))
             .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT));
         let button = Button::image_and_text(image, self.storage.name());
         let response = ui.add_sized(Vec2::new(ui.available_width(), HEIGHT), button);
@@ -151,8 +152,7 @@ impl Widget for StorageWidget<'_> {
     }
 }
 
-fn icon_color(settings: &Arc<RwLock<Settings>>) -> Color32 {
-    let theme = settings.read().unwrap().color_scheme();
+fn icon_color(theme: ColorScheme) -> Color32 {
     match theme {
         ColorScheme::Egui => Color32::LIGHT_BLUE.linear_multiply(0.5),
         ColorScheme::Solarized => egui_solarized::BLUE,
