@@ -54,9 +54,12 @@ impl SelectTarget {
                     let home_response = ui.add_sized(
                         Vec2::new(ui.available_width(), HEIGHT),
                         Button::image_and_text(
-                            Image::new(include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/home.svg")))
-                                .tint(icon_color(&self.settings))
-                                .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
+                            Image::new(include_image!(concat!(
+                                env!("CARGO_MANIFEST_DIR"),
+                                "/assets/home.svg"
+                            )))
+                            .tint(icon_color(&self.settings))
+                            .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
                             HOME_FOLDER,
                         ),
                     );
@@ -66,9 +69,12 @@ impl SelectTarget {
                         Tooltip::for_widget(&home_response).at_pointer().show(|ui| {
                             ui.horizontal(|ui| {
                                 ui.add(
-                                    Image::new(include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/home.svg")))
-                                        .tint(icon_color(&self.settings))
-                                        .fit_to_exact_size(Vec2::new(FONT_SIZE, FONT_SIZE)),
+                                    Image::new(include_image!(concat!(
+                                        env!("CARGO_MANIFEST_DIR"),
+                                        "/assets/home.svg"
+                                    )))
+                                    .tint(icon_color(&self.settings))
+                                    .fit_to_exact_size(Vec2::new(FONT_SIZE, FONT_SIZE)),
                                 );
                                 ui.heading(HOME_FOLDER);
                             });
@@ -82,9 +88,12 @@ impl SelectTarget {
                     .add_sized(
                         Vec2::new(ui.available_width(), HEIGHT),
                         Button::image_and_text(
-                            Image::new(include_image!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/directory.svg")))
-                                .tint(icon_color(&self.settings))
-                                .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
+                            Image::new(include_image!(concat!(
+                                env!("CARGO_MANIFEST_DIR"),
+                                "/assets/directory.svg"
+                            )))
+                            .tint(icon_color(&self.settings))
+                            .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT)),
                             "Select Folder...",
                         ),
                     )

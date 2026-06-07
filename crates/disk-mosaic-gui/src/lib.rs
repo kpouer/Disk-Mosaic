@@ -39,7 +39,8 @@ pub fn start(path: Option<PathBuf>) -> Result<(), String> {
 }
 
 fn icon_data() -> egui::IconData {
-    let app_icon_png_bytes = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icon.png"));
+    let app_icon_png_bytes =
+        include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icon.png"));
 
     match eframe::icon_data::from_png_bytes(app_icon_png_bytes) {
         Ok(icon_data) => icon_data,

@@ -1,7 +1,9 @@
 use crate::color;
 use crate::color::Color;
+use crate::directory_scanner::CountAndSize;
 use crate::util::PathBufToString;
 use log::{error, warn};
+use std::env::current_dir;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use treemap::{Mappable, Rect};
@@ -52,11 +54,11 @@ impl Data {
         }
     }
 
-    pub(crate) fn remaining(count: u64, size: u64) -> Self {
+    pub(crate) fn remaining(count_and_size: CountAndSize) -> Self {
         Self {
             name: "Remaining".to_string(),
-            kind: Kind::SmallFiles(count),
-            size,
+            kind: Kind::SmallFiles(count_and_size.count),
+            size: count_and_size.size,
             color: Data::next_color(),
             ..Default::default()
         }
