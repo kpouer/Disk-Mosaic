@@ -11,8 +11,7 @@ use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::thread;
@@ -36,13 +35,13 @@ pub(crate) struct Analyzer {
     scanned_directories: u64,
     scan_result: ScanResult,
     about_open: bool,
-    settings: Arc<Mutex<Settings>>,
+    settings: Arc<RwLock<Settings>>,
 }
 
 impl Analyzer {
     /// Create a new analyzer.
     /// The analyzer will scan the given directory and all subdirectories in a thread.
-    pub(crate) fn new(root: PathBuf, settings: Arc<Mutex<Settings>>) -> Self {
+    pub(crate) fn new(root: PathBuf, settings: Arc<RwLock<Settings>>) -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let stopper = Arc::new(AtomicBool::new(false));
         let root_copy = root.clone();
@@ -153,12 +152,12 @@ impl Analyzer {
 #[derive(Debug)]
 struct ScannerConfig {
     big_file_threshold: u64,
-    settings: Arc<Mutex<Settings>>,
+    settings: Arc<RwLock<Settings>>,
 }
 
 impl ScannerConfig {
-    fn new(settings: Arc<Mutex<Settings>>) -> Self {
-        let big_file_threshold = settings.lock().unwrap().big_file_threshold();
+    fn new(settings: Arc<RwLock<Settings>>) -> Self {
+        let big_file_threshold = settings.read().unwrap().big_file_threshold();
         Self {
             big_file_threshold,
             settings,
@@ -172,6 +171,6 @@ impl ScanConfig for ScannerConfig {
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
-        self.settings.lock().unwrap().is_path_ignored(path)
+        self.settings.read().unwrap().is_path_ignored(path)
     }
 }

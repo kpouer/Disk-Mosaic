@@ -5,13 +5,13 @@ use crate::settings_panel::folder_list_panel::SearchFolderPanel;
 use egui::Ui;
 use humansize::DECIMAL;
 use std::ops::Index;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use strum::IntoEnumIterator;
 
 #[derive(Debug)]
 pub(crate) struct SettingsDialog<'a> {
     settings_context: &'a mut SettingsContext,
-    settings: &'a Arc<Mutex<Settings>>,
+    settings: &'a Arc<RwLock<Settings>>,
 }
 
 const GEAR: &str = "\u{2699}";
@@ -19,7 +19,7 @@ const GEAR: &str = "\u{2699}";
 impl<'a> SettingsDialog<'a> {
     pub(crate) const fn new(
         settings_context: &'a mut SettingsContext,
-        settings: &'a Arc<Mutex<Settings>>,
+        settings: &'a Arc<RwLock<Settings>>,
     ) -> Self {
         Self {
             settings_context,
@@ -37,7 +37,7 @@ impl<'a> SettingsDialog<'a> {
     }
 
     fn show(&mut self, ui: &mut Ui) {
-        let mut settings = self.settings.lock().unwrap();
+        let mut settings = self.settings.write().unwrap();
         egui::Window::new("Settings")
             .open(&mut self.settings_context.open)
             .show(ui, |ui| {

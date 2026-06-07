@@ -6,20 +6,20 @@ use egui::{Event, Label, Response, TextWrapMode, Tooltip, Ui, UiKind, Widget};
 use humansize::DECIMAL;
 use log::error;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use treemap::{Mappable, Rect, TreemapLayout};
 
 #[derive(Debug)]
 pub(crate) struct TreeMapPanel<'a> {
     analysis_result: &'a mut AnalysisResult,
-    settings: &'a Arc<Mutex<Settings>>,
+    settings: &'a Arc<RwLock<Settings>>,
     can_zoom_in: bool,
 }
 
 impl<'a> TreeMapPanel<'a> {
     pub(crate) const fn new(
         analysis_result: &'a mut AnalysisResult,
-        settings: &'a Arc<Mutex<Settings>>,
+        settings: &'a Arc<RwLock<Settings>>,
         can_zoom_in: bool,
     ) -> Self {
         TreeMapPanel {
@@ -115,7 +115,7 @@ impl<'a> TreeMapPanel<'a> {
         full_path: &Path,
         data: &Data,
         response: Response,
-        settings: &Arc<Mutex<Settings>>,
+        settings: &Arc<RwLock<Settings>>,
     ) {
         let full_path = full_path.to_path_buf();
         response.context_menu(|ui| {
@@ -144,7 +144,7 @@ impl<'a> TreeMapPanel<'a> {
             if ui.button("Ignore path").clicked() {
                 let mut path = full_path.clone();
                 path.push(&data.name);
-                let mut settings = settings.lock().unwrap();
+                let mut settings = settings.write().unwrap();
                 settings.add_ignored_path(path);
                 ui.close_kind(UiKind::Menu);
             }

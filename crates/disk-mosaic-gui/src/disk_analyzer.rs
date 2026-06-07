@@ -7,7 +7,7 @@ use eframe::Frame;
 use egui::{Context, Ui};
 use log::info;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 enum AppState {
@@ -18,13 +18,10 @@ enum AppState {
 
 impl DiskAnalyzerApp {
     pub(crate) fn new(settings: Settings, initial_path: Option<PathBuf>) -> Self {
-        let settings = Arc::new(Mutex::new(settings));
+        let settings = Arc::new(RwLock::new(settings));
         let state = match initial_path {
             Some(path) => {
-                info!(
-                    "CLI path provided: {:?}, starting analysis immediately",
-                    path
-                );
+                info!("CLI path provided: {path:?}, starting analysis immediately");
                 AppState::Analyzing(Analyzer::new(path, Arc::clone(&settings)))
             }
             None => SelectDisk(SelectTarget::new(Arc::clone(&settings))),
@@ -35,7 +32,7 @@ impl DiskAnalyzerApp {
 
 #[derive(Debug)]
 pub(crate) struct DiskAnalyzerApp {
-    settings: Arc<Mutex<Settings>>,
+    settings: Arc<RwLock<Settings>>,
     state: AppState,
 }
 
@@ -79,7 +76,7 @@ impl eframe::App for DiskAnalyzerApp {
         }
 
         if ui.ctx().input(|i| i.viewport().close_requested()) {
-            let settings = self.settings.lock().unwrap();
+            let settings = self.settings.write().unwrap();
             settings.save().expect("Unable to save settings");
         }
     }

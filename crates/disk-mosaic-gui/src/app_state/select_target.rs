@@ -9,11 +9,11 @@ use egui::{Button, Color32, Image, Response, Tooltip, Ui, Vec2, Widget, include_
 use home::home_dir;
 use humansize::DECIMAL;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 pub(crate) struct SelectTarget {
-    settings: Arc<Mutex<Settings>>,
+    settings: Arc<RwLock<Settings>>,
     storage_manager: StorageManager,
     about_open: bool,
     settings_context: SettingsContext,
@@ -22,7 +22,7 @@ pub(crate) struct SelectTarget {
 const HOME_FOLDER: &str = "Home Folder";
 
 impl SelectTarget {
-    pub(crate) fn new(settings: Arc<Mutex<Settings>>) -> Self {
+    pub(crate) fn new(settings: Arc<RwLock<Settings>>) -> Self {
         Self {
             settings_context: SettingsContext::default(),
             settings,
@@ -111,11 +111,11 @@ impl SelectTarget {
 #[derive(Debug)]
 struct StorageWidget<'a> {
     storage: &'a Storage,
-    settings: &'a Arc<Mutex<Settings>>,
+    settings: &'a Arc<RwLock<Settings>>,
 }
 
 impl<'a> StorageWidget<'a> {
-    const fn new(storage: &'a Storage, settings: &'a Arc<Mutex<Settings>>) -> Self {
+    const fn new(storage: &'a Storage, settings: &'a Arc<RwLock<Settings>>) -> Self {
         Self { storage, settings }
     }
 }
@@ -151,8 +151,8 @@ impl Widget for StorageWidget<'_> {
     }
 }
 
-fn icon_color(settings: &Arc<Mutex<Settings>>) -> Color32 {
-    let theme = settings.lock().unwrap().color_scheme();
+fn icon_color(settings: &Arc<RwLock<Settings>>) -> Color32 {
+    let theme = settings.read().unwrap().color_scheme();
     match theme {
         ColorScheme::Egui => Color32::LIGHT_BLUE.linear_multiply(0.5),
         ColorScheme::Solarized => egui_solarized::BLUE,
