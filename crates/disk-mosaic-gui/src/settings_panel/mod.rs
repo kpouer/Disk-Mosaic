@@ -44,25 +44,9 @@ impl<'a> SettingsDialog<'a> {
                     .spacing([40.0, 4.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        ui.label("Color scheme: ");
-                        egui::ComboBox::from_id_salt("ColorScheme")
-                            .selected_text(format!("{:?}", self.settings.color_scheme()))
-                            .show_ui(ui, |ui| {
-                                ColorScheme::iter().for_each(|scheme| {
-                                    if ui
-                                        .selectable_value(
-                                            &mut *self.settings.color_scheme_mut(),
-                                            scheme,
-                                            format!("{scheme:?}"),
-                                        )
-                                        .clicked()
-                                    {
-                                        scheme.apply(ui.ctx());
-                                    }
-                                });
-                            });
+                        ColorSchemeWidget::new(self.settings).ui(ui);
                         ui.end_row();
-                      ThemePreferenceWidget::new(&self.settings).ui(ui);
+                        ThemePreferenceWidget::new(self.settings).ui(ui);
                         ui.end_row();
                         ui.label("Big file threshold :");
                         let response = ui.add(
@@ -106,9 +90,43 @@ impl<'a> SettingsDialog<'a> {
     }
 }
 
+struct ColorSchemeWidget<'a> {
+    settings: &'a Settings,
+}
+
+impl<'a> ColorSchemeWidget<'a> {
+    const fn new(settings: &'a Settings) -> Self {
+        Self { settings }
+    }
+}
+
+impl<'a> Widget for ColorSchemeWidget<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.label("Color scheme: ");
+        egui::ComboBox::from_id_salt("ColorScheme")
+            .selected_text(format!("{:?}", self.settings.color_scheme()))
+            .show_ui(ui, |ui| {
+                ColorScheme::iter().for_each(|scheme| {
+                    if ui
+                        .selectable_value(
+                            &mut *self.settings.color_scheme_mut(),
+                            scheme,
+                            format!("{scheme:?}"),
+                        )
+                        .clicked()
+                    {
+                        scheme.apply(ui.ctx());
+                    }
+                });
+            })
+            .response
+    }
+}
+
 struct ThemePreferenceWidget<'a> {
     settings: &'a Settings,
 }
+
 impl<'a> ThemePreferenceWidget<'a> {
     const fn new(settings: &'a Settings) -> Self {
         Self { settings }
