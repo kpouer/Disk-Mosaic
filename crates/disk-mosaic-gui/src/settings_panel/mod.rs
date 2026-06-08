@@ -2,7 +2,7 @@ mod folder_list_panel;
 
 use crate::settings::{ColorScheme, Settings, ThemePreference};
 use crate::settings_panel::folder_list_panel::SearchFolderPanel;
-use egui::Ui;
+use egui::{Response, Ui, Widget};
 use humansize::DECIMAL;
 use std::ops::Index;
 use strum::IntoEnumIterator;
@@ -62,31 +62,7 @@ impl<'a> SettingsDialog<'a> {
                                 });
                             });
                         ui.end_row();
-                        ui.label("Theme: ");
-                        ui.horizontal(|ui| {
-                            let theme = self.settings.theme();
-                            if ui
-                                .radio(theme == ThemePreference::System, "System")
-                                .clicked()
-                            {
-                                self.settings.set_theme(ThemePreference::System);
-                                ui.ctx().set_theme(ThemePreference::System);
-                            }
-                            if ui
-                                .radio(theme == ThemePreference::Dark, "Dark")
-                                .clicked()
-                            {
-                                self.settings.set_theme(ThemePreference::Dark);
-                                ui.ctx().set_theme(ThemePreference::Dark);
-                            }
-                            if ui
-                                .radio(theme == ThemePreference::Light, "Light")
-                                .clicked()
-                            {
-                                self.settings.set_theme(ThemePreference::Light);
-                                ui.ctx().set_theme(ThemePreference::Light);
-                            }
-                        });
+                      ThemePreferenceWidget::new(&self.settings).ui(ui);
                         ui.end_row();
                         ui.label("Big file threshold :");
                         let response = ui.add(
@@ -127,6 +103,31 @@ impl<'a> SettingsDialog<'a> {
                     self.settings.set_dirty(true);
                 }
             });
+    }
+}
+
+struct ThemePreferenceWidget<'a> {
+    settings: &'a Settings,
+}
+impl<'a> ThemePreferenceWidget<'a> {
+    const fn new(settings: &'a Settings) -> Self {
+        Self { settings }
+    }
+}
+
+impl<'a> Widget for ThemePreferenceWidget<'a> {
+    fn ui(self, ui: &mut Ui) -> Response {
+        ui.label("Theme: ");
+        ui.horizontal(|ui| {
+            let theme = self.settings.theme();
+            for t in ThemePreference::iter() {
+                if ui.radio(theme == t, t.to_string()).clicked() {
+                    self.settings.set_theme(t);
+                    ui.ctx().set_theme(t);
+                }
+            }
+        })
+        .response
     }
 }
 

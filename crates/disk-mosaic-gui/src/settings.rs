@@ -6,7 +6,7 @@ use std::fs::File;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
-use strum_macros::{EnumIter, EnumString};
+use strum_macros::{Display, EnumIter, EnumString};
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct Settings {
@@ -238,7 +238,9 @@ impl ColorScheme {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Default, Display, EnumIter,
+)]
 pub(crate) enum ThemePreference {
     #[default]
     System,
