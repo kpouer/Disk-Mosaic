@@ -1,4 +1,4 @@
-#[cfg(not(feature = "gui"))]
+#[cfg(any(feature = "gui", not(feature = "tui")))]
 compile_error!("tui app is text only, do not activate gui feature. Use bin DiskMosaic instead");
 
 mod args;
