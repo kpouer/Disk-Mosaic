@@ -10,9 +10,9 @@ use std::io::ErrorKind;
 use std::iter::{Filter, Flatten};
 use std::ops::Add;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct DirectoryScanner<'a, T>
@@ -237,10 +237,9 @@ where
     {
         let (mut data, count_and_size) = entries
             .par_bridge()
-            .fold(
-                ChildrenAccumulator::default,
-                |accumulator, entry| self.fold_children(big_file_threshold, accumulator, entry),
-            )
+            .fold(ChildrenAccumulator::default, |accumulator, entry| {
+                self.fold_children(big_file_threshold, accumulator, entry)
+            })
             .reduce(ChildrenAccumulator::default, merge_children_accumulators);
         if count_and_size.size > 0 {
             data.push(Data::remaining(count_and_size));

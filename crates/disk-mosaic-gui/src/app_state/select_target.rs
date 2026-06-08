@@ -9,11 +9,10 @@ use egui::{Button, Color32, Image, Response, Tooltip, Ui, Vec2, Widget, include_
 use home::home_dir;
 use humansize::DECIMAL;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 pub(crate) struct SelectTarget {
-    settings: Arc<RwLock<Settings>>,
+    settings: Settings,
     storage_manager: StorageManager,
     about_open: bool,
     settings_context: SettingsContext,
@@ -22,7 +21,7 @@ pub(crate) struct SelectTarget {
 const HOME_FOLDER: &str = "Home Folder";
 
 impl SelectTarget {
-    pub(crate) fn new(settings: Arc<RwLock<Settings>>) -> Self {
+    pub(crate) fn new(settings: Settings) -> Self {
         Self {
             settings_context: SettingsContext::default(),
             settings,
@@ -43,7 +42,7 @@ impl SelectTarget {
         });
         egui::CentralPanel::default()
             .show_inside(ui, |ui| {
-                let tint_color = icon_color(self.settings.read().unwrap().color_scheme());
+                let tint_color = icon_color(self.settings.color_scheme());
                 let mut selected_path = None;
                 self.storage_manager.iter().for_each(|disk| {
                     if StorageWidget::new(disk, &self.settings).ui(ui).clicked() {
@@ -112,11 +111,11 @@ impl SelectTarget {
 #[derive(Debug)]
 struct StorageWidget<'a> {
     storage: &'a Storage,
-    settings: &'a Arc<RwLock<Settings>>,
+    settings: &'a Settings,
 }
 
 impl<'a> StorageWidget<'a> {
-    const fn new(storage: &'a Storage, settings: &'a Arc<RwLock<Settings>>) -> Self {
+    const fn new(storage: &'a Storage, settings: &'a Settings) -> Self {
         Self { storage, settings }
     }
 }
@@ -126,7 +125,7 @@ const HEIGHT: f32 = 48.0;
 impl Widget for StorageWidget<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let image = egui::Image::new(self.storage.icon())
-            .tint(icon_color(self.settings.read().unwrap().color_scheme()))
+            .tint(icon_color(self.settings.color_scheme()))
             .fit_to_exact_size(Vec2::new(HEIGHT, HEIGHT));
         let button = Button::image_and_text(image, self.storage.name());
         let response = ui.add_sized(Vec2::new(ui.available_width(), HEIGHT), button);

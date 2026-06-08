@@ -7,7 +7,6 @@ use eframe::Frame;
 use egui::{Context, Ui};
 use log::info;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 enum AppState {
@@ -17,14 +16,14 @@ enum AppState {
 }
 
 impl DiskAnalyzerApp {
-    pub(crate) fn new(settings: Settings, initial_path: Option<PathBuf>) -> Self {
-        let settings = Arc::new(RwLock::new(settings));
+    pub(crate) fn new(_settings: Settings, initial_path: Option<PathBuf>) -> Self {
+        let settings = Settings::default();
         let state = match initial_path {
             Some(path) => {
                 info!("CLI path provided: {path:?}, starting analysis immediately");
-                AppState::Analyzing(Analyzer::new(path, Arc::clone(&settings)))
+                AppState::Analyzing(Analyzer::new(path, settings.clone()))
             }
-            None => SelectDisk(SelectTarget::new(Arc::clone(&settings))),
+            None => SelectDisk(SelectTarget::new(settings.clone())),
         };
         Self { settings, state }
     }
@@ -32,7 +31,7 @@ impl DiskAnalyzerApp {
 
 #[derive(Debug)]
 pub(crate) struct DiskAnalyzerApp {
-    settings: Arc<RwLock<Settings>>,
+    settings: Settings,
     state: AppState,
 }
 
@@ -44,40 +43,33 @@ impl eframe::App for DiskAnalyzerApp {
             AppState::SelectDisk(select_target) => {
                 if let Some(selected_path) = select_target.show(ui) {
                     info!("Selected path: {selected_path:?}");
-                    self.state = AppState::Analyzing(Analyzer::new(
-                        selected_path,
-                        Arc::clone(&self.settings),
-                    ));
+                    self.state =
+                        AppState::Analyzing(Analyzer::new(selected_path, self.settings.clone()));
                 }
             }
             AppState::Analyzing(analyzer) => match analyzer.show(ui) {
                 AnalyzerUpdate::Finished => {
                     info!("Analysis finished, transitioning to ResultView");
                     let analysis_result = std::mem::take(&mut analyzer.analysis_result);
-                    self.state = AppState::Analyzed(ResultView::new(
-                        analysis_result,
-                        Arc::clone(&self.settings),
-                    ));
+                    self.state =
+                        AppState::Analyzed(ResultView::new(analysis_result, self.settings.clone()));
                 }
                 AnalyzerUpdate::GoBack => {
                     info!("Back requested from Analyzer, transitioning to SelectTarget");
-                    self.state =
-                        AppState::SelectDisk(SelectTarget::new(Arc::clone(&self.settings)));
+                    self.state = AppState::SelectDisk(SelectTarget::new(self.settings.clone()));
                 }
                 AnalyzerUpdate::Running => {}
             },
             AppState::Analyzed(result_view) => {
                 if result_view.show(ui) {
                     info!("Back requested from ResultView, transitioning to SelectTarget");
-                    self.state =
-                        AppState::SelectDisk(SelectTarget::new(Arc::clone(&self.settings)));
+                    self.state = AppState::SelectDisk(SelectTarget::new(self.settings.clone()));
                 }
             }
         }
 
         if ui.ctx().input(|i| i.viewport().close_requested()) {
-            let settings = self.settings.write().unwrap();
-            settings.save().expect("Unable to save settings");
+            self.settings.save().expect("Unable to save settings");
         }
     }
 }

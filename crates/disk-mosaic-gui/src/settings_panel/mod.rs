@@ -5,13 +5,12 @@ use crate::settings_panel::folder_list_panel::SearchFolderPanel;
 use egui::Ui;
 use humansize::DECIMAL;
 use std::ops::Index;
-use std::sync::{Arc, RwLock};
 use strum::IntoEnumIterator;
 
 #[derive(Debug)]
 pub(crate) struct SettingsDialog<'a> {
     settings_context: &'a mut SettingsContext,
-    settings: &'a Arc<RwLock<Settings>>,
+    settings: &'a Settings,
 }
 
 const GEAR: &str = "\u{2699}";
@@ -19,7 +18,7 @@ const GEAR: &str = "\u{2699}";
 impl<'a> SettingsDialog<'a> {
     pub(crate) const fn new(
         settings_context: &'a mut SettingsContext,
-        settings: &'a Arc<RwLock<Settings>>,
+        settings: &'a Settings,
     ) -> Self {
         Self {
             settings_context,
@@ -27,7 +26,7 @@ impl<'a> SettingsDialog<'a> {
         }
     }
 
-    pub(crate) fn show_button(&mut self, ui: &mut egui::Ui) {
+    pub(crate) fn show_button(&mut self, ui: &mut Ui) {
         if ui.button(GEAR).clicked() {
             self.settings_context.open = true;
         }
@@ -37,7 +36,6 @@ impl<'a> SettingsDialog<'a> {
     }
 
     fn show(&mut self, ui: &mut Ui) {
-        let mut settings = self.settings.write().unwrap();
         egui::Window::new("Settings")
             .open(&mut self.settings_context.open)
             .show(ui, |ui| {
@@ -48,12 +46,12 @@ impl<'a> SettingsDialog<'a> {
                     .show(ui, |ui| {
                         ui.label("Color scheme: ");
                         egui::ComboBox::from_id_salt("ColorScheme")
-                            .selected_text(format!("{:?}", settings.color_scheme()))
+                            .selected_text(format!("{:?}", self.settings.color_scheme()))
                             .show_ui(ui, |ui| {
                                 ColorScheme::iter().for_each(|scheme| {
                                     if ui
                                         .selectable_value(
-                                             settings.color_scheme_mut(),
+                                            &mut *self.settings.color_scheme_mut(),
                                             scheme,
                                             format!("{scheme:?}"),
                                         )
@@ -66,52 +64,53 @@ impl<'a> SettingsDialog<'a> {
                         ui.end_row();
                         ui.label("Theme: ");
                         ui.horizontal(|ui| {
+                            let theme = self.settings.theme();
                             if ui
-                                .radio(settings.theme() == ThemePreference::System, "System")
+                                .radio(theme == ThemePreference::System, "System")
                                 .clicked()
                             {
-                                settings.set_theme(ThemePreference::System);
+                                self.settings.set_theme(ThemePreference::System);
                                 ui.ctx().set_theme(ThemePreference::System);
                             }
                             if ui
-                                .radio(settings.theme() == ThemePreference::Dark, "Dark")
+                                .radio(theme == ThemePreference::Dark, "Dark")
                                 .clicked()
                             {
-                                settings.set_theme(ThemePreference::Dark);
+                                self.settings.set_theme(ThemePreference::Dark);
                                 ui.ctx().set_theme(ThemePreference::Dark);
                             }
                             if ui
-                                .radio(settings.theme() == ThemePreference::Light, "Light")
+                                .radio(theme == ThemePreference::Light, "Light")
                                 .clicked()
                             {
-                                settings.set_theme(ThemePreference::Light);
+                                self.settings.set_theme(ThemePreference::Light);
                                 ui.ctx().set_theme(ThemePreference::Light);
                             }
                         });
                         ui.end_row();
                         ui.label("Big file threshold :");
                         let response = ui.add(
-                            egui::DragValue::new(&mut settings.big_file_threshold())
+                            egui::DragValue::new(&mut *self.settings.big_file_threshold_mut())
                                 .speed(1_000_000.0) // 1MB
                                 .custom_formatter(|size, _| {
                                     humansize::format_size(size as u64, DECIMAL)
                                 }),
                         );
                         if response.changed() {
-                            settings.set_dirty(true);
+                            self.settings.set_dirty(true);
                         }
                         if response.hovered() {
                             response.show_tooltip_text("Smaller will be be grouped as a remaining group without showing details. \
                         Reducing this threshold allow to show them but will also reduce the performance and consume more memory.")
                         };
                         if ui.button("Default value").clicked() {
-                            settings.reset_big_file_threshold();
+                            self.settings.reset_big_file_threshold();
                         }
                         ui.end_row();
                         ui.label("Ignore common cloud folders:");
-                        let chk = ui.checkbox(&mut settings.ignore_cloud_mounts(), "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
+                        let chk = ui.checkbox(&mut *self.settings.ignore_cloud_mounts_mut(), "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
                         if chk.changed() {
-                            settings.set_dirty(true);
+                            self.settings.set_dirty(true);
                         }
                         ui.end_row();
                     });
@@ -119,13 +118,13 @@ impl<'a> SettingsDialog<'a> {
                     "ignored_folders",
                     "Ignored folders",
                     HashListPanel::new(
-                        settings.ignored_paths_mut(),
+                        &mut *self.settings.ignored_paths_mut(),
                         &mut self.settings_context.ignored_folders_selection,
                     ),
                 )
                 .show(ui);
                 if modified {
-                    settings.set_dirty(true);
+                    self.settings.set_dirty(true);
                 }
             });
     }

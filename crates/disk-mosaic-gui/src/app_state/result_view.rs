@@ -4,20 +4,16 @@ use crate::settings::Settings;
 use crate::treemap_panel::TreeMapPanel;
 use disk_mosaic_core::analysis_result::AnalysisResult;
 use egui::Ui;
-use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
 pub(crate) struct ResultView {
     analysis_result: AnalysisResult,
     about_open: bool,
-    settings: Arc<RwLock<Settings>>,
+    settings: Settings,
 }
 
 impl ResultView {
-    pub(crate) const fn new(
-        analysis_result: AnalysisResult,
-        settings: Arc<RwLock<Settings>>,
-    ) -> Self {
+    pub(crate) const fn new(analysis_result: AnalysisResult, settings: Settings) -> Self {
         Self {
             analysis_result,
             about_open: false,

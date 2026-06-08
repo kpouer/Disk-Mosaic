@@ -3,11 +3,84 @@ use disk_mosaic_core::directory_scanner::BIG_FILE_THRESHOLD;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use strum_macros::{EnumIter, EnumString};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct Settings {
+    inner: Arc<RwLock<InnerSettings>>,
+}
+
+impl Settings {
+    pub(crate) fn big_file_threshold(&self) -> u64 {
+        self.inner.read().unwrap().big_file_threshold
+    }
+
+    pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
+        self.inner.read().unwrap().is_path_ignored(path)
+    }
+
+    pub(crate) fn big_file_threshold_mut(&self) -> SettingsBigFileThresholdMut<'_> {
+        SettingsBigFileThresholdMut {
+            settings: self.inner.write().unwrap(),
+        }
+    }
+
+    pub(crate) fn reset_big_file_threshold(&self) {
+        let mut settings = self.inner.write().unwrap();
+        settings.big_file_threshold = BIG_FILE_THRESHOLD;
+        settings.dirty = true;
+    }
+
+    pub(crate) fn color_scheme(&self) -> ColorScheme {
+        self.inner.read().unwrap().color_scheme
+    }
+
+    pub(crate) fn color_scheme_mut(&self) -> SettingsColorSchemeMut<'_> {
+        SettingsColorSchemeMut {
+            settings: self.inner.write().unwrap(),
+        }
+    }
+
+    pub(crate) fn ignored_paths_mut(&self) -> SettingsIgnoredPathMut<'_> {
+        SettingsIgnoredPathMut {
+            settings: self.inner.write().unwrap(),
+        }
+    }
+
+    pub(crate) fn ignore_cloud_mounts_mut(&self) -> SettingsIgnoreCloudMountsMut<'_> {
+        SettingsIgnoreCloudMountsMut {
+            settings: self.inner.write().unwrap(),
+        }
+    }
+
+    pub(crate) fn save(&self) -> Result<(), std::io::Error> {
+        self.inner.read().unwrap().save()
+    }
+
+    pub(crate) fn set_dirty(&self, dirty: bool) {
+        self.inner.write().unwrap().dirty = dirty
+    }
+
+    pub(crate) fn theme(&self) -> ThemePreference {
+        self.inner.read().unwrap().theme
+    }
+
+    pub(crate) fn set_theme(&self, theme: ThemePreference) {
+        let mut settings = self.inner.write().unwrap();
+        settings.theme = theme;
+        settings.dirty = true;
+    }
+
+    pub(crate) fn init(&self, ctx: &egui::Context) {
+        self.inner.read().unwrap().init(ctx);
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct InnerSettings {
     #[serde(skip)]
     /// Mark the Settings as dirty (need to be saved)
     dirty: bool,
@@ -16,17 +89,17 @@ pub(crate) struct Settings {
     /// List of paths to ignore (might be cloud drives, etc.
     ignored_path: Vec<PathBuf>,
     /// Ignore common cloud folders like Dropbox, OneDrive, Google Drive, iCloud, etc.
-    #[serde(default = "Settings::default_ignore_cloud_mounts")]
+    #[serde(default = "InnerSettings::default_ignore_cloud_mounts")]
     ignore_cloud_mounts: bool,
     /// Threshold for big files (in bytes). Files smaller than this will be displayed as a single block.
     big_file_threshold: u64,
 }
 
-impl Default for Settings {
+impl Default for InnerSettings {
     fn default() -> Self {
         Self::settings_file()
             .and_then(|settings_file| File::open(settings_file).ok())
-            .and_then(|settings_file| serde_json::from_reader::<File, Settings>(settings_file).ok())
+            .and_then(|settings_file| serde_json::from_reader::<File, Self>(settings_file).ok())
             .unwrap_or(Self {
                 dirty: false,
                 color_scheme: Egui,
@@ -38,43 +111,10 @@ impl Default for Settings {
     }
 }
 
-impl Settings {
-    pub(crate) const fn ignore_cloud_mounts(&self) -> bool {
-        self.ignore_cloud_mounts
-    }
-
-    pub(crate) const fn set_dirty(&mut self, dirty: bool) {
-        self.dirty = dirty
-    }
-
-    pub(crate) const fn color_scheme(&self) -> ColorScheme {
-        self.color_scheme
-    }
-
-    pub(crate) const fn color_scheme_mut(&mut self) -> &mut ColorScheme {
-        &mut self.color_scheme
-    }
-
-    pub(crate) const fn theme(&self) -> ThemePreference {
-        self.theme
-    }
-
-    pub(crate) const fn set_theme(&mut self, theme: ThemePreference) {
-        self.theme = theme;
-        self.dirty = true;
-    }
-
+impl InnerSettings {
     pub(crate) fn init(&self, ctx: &egui::Context) {
         ctx.set_theme(self.theme);
         self.color_scheme.apply(ctx);
-    }
-}
-
-impl Settings {
-    pub(crate) fn add_ignored_path(&mut self, path: PathBuf) {
-        info!("add ignored path: {path:?}");
-        self.ignored_path.push(path);
-        self.dirty = true;
     }
 
     pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
@@ -89,19 +129,6 @@ impl Settings {
             return true;
         }
         false
-    }
-
-    pub(crate) const fn ignored_paths_mut(&mut self) -> &mut Vec<PathBuf> {
-        &mut self.ignored_path
-    }
-
-    pub(crate) const fn big_file_threshold(&self) -> u64 {
-        self.big_file_threshold
-    }
-
-    pub(crate) const fn reset_big_file_threshold(&mut self) {
-        self.big_file_threshold = BIG_FILE_THRESHOLD;
-        self.dirty = true;
     }
 
     pub(crate) fn save(&self) -> Result<(), std::io::Error> {
@@ -202,8 +229,8 @@ impl ColorScheme {
         match self {
             Egui => {
                 ctx.options_mut(|options| {
-                    options.dark_style = std::sync::Arc::new(egui::Theme::Dark.default_style());
-                    options.light_style = std::sync::Arc::new(egui::Theme::Light.default_style());
+                    options.dark_style = Arc::new(egui::Theme::Dark.default_style());
+                    options.light_style = Arc::new(egui::Theme::Light.default_style());
                 });
             }
             ColorScheme::Solarized => egui_solarized::install(ctx),
@@ -228,3 +255,38 @@ impl From<ThemePreference> for egui::ThemePreference {
         }
     }
 }
+
+impl PartialEq for SettingsColorSchemeMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        let color_scheme: &ColorScheme = self.deref();
+        color_scheme == other.deref()
+    }
+}
+
+macro_rules! settings_mut_guard {
+    ($name:ident, $field:ident, $target:ty) => {
+        pub(crate) struct $name<'a> {
+            settings: RwLockWriteGuard<'a, InnerSettings>,
+        }
+
+        impl Deref for $name<'_> {
+            type Target = $target;
+
+            fn deref(&self) -> &Self::Target {
+                &self.settings.$field
+            }
+        }
+
+        impl DerefMut for $name<'_> {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                self.settings.dirty = true;
+                &mut self.settings.$field
+            }
+        }
+    };
+}
+
+settings_mut_guard!(SettingsColorSchemeMut, color_scheme, ColorScheme);
+settings_mut_guard!(SettingsIgnoredPathMut, ignored_path, Vec<PathBuf>);
+settings_mut_guard!(SettingsBigFileThresholdMut, big_file_threshold, u64);
+settings_mut_guard!(SettingsIgnoreCloudMountsMut, ignore_cloud_mounts, bool);

@@ -11,9 +11,9 @@ use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 use treemap::Mappable;
@@ -35,18 +35,18 @@ pub(crate) struct Analyzer {
     scanned_directories: u64,
     scan_result: ScanResult,
     about_open: bool,
-    settings: Arc<RwLock<Settings>>,
+    settings: Settings,
 }
 
 impl Analyzer {
     /// Create a new analyzer.
     /// The analyzer will scan the given directory and all subdirectories in a thread.
-    pub(crate) fn new(root: PathBuf, settings: Arc<RwLock<Settings>>) -> Self {
+    pub(crate) fn new(root: PathBuf, settings: Settings) -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let stopper = Arc::new(AtomicBool::new(false));
         let root_copy = root.clone();
         let stopper_copy = stopper.clone();
-        let settings_copy = settings.read().unwrap().clone();
+        let settings_copy = settings.clone();
         let handle = thread::spawn(move || {
             let start = std::time::Instant::now();
             DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
