@@ -9,7 +9,7 @@ pub struct AnalysisResult {
 }
 
 impl AnalysisResult {
-    pub const fn new(root_path: PathBuf, data_stack: Vec<Data>) -> AnalysisResult {
+    pub const fn new(root_path: PathBuf, data_stack: Vec<Data>) -> Self {
         Self {
             data_stack,
             root_path,
