@@ -24,5 +24,10 @@ fn main() -> Result<(), String> {
         None => std::path::PathBuf::from("."),
     };
 
+    let path = std::fs::canonicalize(path).unwrap_or_else(|e| {
+        eprintln!("Error: Path is invalid or inaccessible: {e}");
+        std::process::exit(1);
+    });
+
     disk_mosaic_tui::start(path)
 }
