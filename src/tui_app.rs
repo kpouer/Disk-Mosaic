@@ -1,10 +1,14 @@
 #[cfg(any(feature = "gui", not(feature = "tui")))]
 compile_error!("tui app is text only, do not activate gui feature. Use bin DiskMosaic instead");
 
-mod args;
-
-use crate::args::Args;
+use std::path::PathBuf;
 use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    pub path: Option<PathBuf>,
+}
 
 fn main() -> Result<(), String> {
     env_logger::init();
