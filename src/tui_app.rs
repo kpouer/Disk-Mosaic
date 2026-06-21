@@ -7,7 +7,9 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    pub path: Option<PathBuf>,
+    path: Option<PathBuf>,
+    #[arg(short, long)]
+    exclude: Vec<String>,
 }
 
 fn main() -> Result<(), String> {

@@ -1,5 +1,5 @@
 use crate::settings::ColorScheme::Egui;
-use disk_mosaic_core::directory_scanner::BIG_FILE_THRESHOLD;
+use disk_mosaic_core::directory_scanner::{ScanConfig, BIG_FILE_THRESHOLD};
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -13,15 +13,17 @@ pub(crate) struct Settings {
     inner: Arc<RwLock<InnerSettings>>,
 }
 
-impl Settings {
-    pub(crate) fn big_file_threshold(&self) -> u64 {
+impl ScanConfig for Settings {
+    fn big_file_threshold(&self) -> u64 {
         self.inner.read().unwrap().big_file_threshold
     }
 
-    pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
+    fn is_path_ignored(&self, path: &Path) -> bool {
         self.inner.read().unwrap().is_path_ignored(path)
     }
+}
 
+impl Settings {
     pub(crate) fn big_file_threshold_mut(&self) -> SettingsBigFileThresholdMut<'_> {
         SettingsBigFileThresholdMut {
             settings: self.inner.write().unwrap(),

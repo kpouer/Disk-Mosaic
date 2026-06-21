@@ -4,16 +4,16 @@ use crate::settings::Settings;
 use crate::treemap_panel::TreeMapPanel;
 use disk_mosaic_core::analysis_result::AnalysisResult;
 use disk_mosaic_core::data::Data;
-use disk_mosaic_core::directory_scanner::{DirectoryScanner, ScanConfig};
+use disk_mosaic_core::directory_scanner::DirectoryScanner;
 use disk_mosaic_core::model::message::Message;
 use disk_mosaic_core::model::scan_result::ScanResult;
 use egui::{Label, Ui};
 use humansize::DECIMAL;
 use log::info;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 use treemap::Mappable;
@@ -141,15 +141,5 @@ impl Analyzer {
         });
 
         update_status
-    }
-}
-
-impl ScanConfig for Settings {
-    fn big_file_threshold(&self) -> u64 {
-        self.big_file_threshold()
-    }
-
-    fn is_path_ignored(&self, path: &Path) -> bool {
-        self.is_path_ignored(path)
     }
 }
