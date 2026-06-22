@@ -7,7 +7,7 @@ use log::{debug, info, warn};
 use rayon::prelude::*;
 use std::fs::{DirEntry, ReadDir};
 use std::io::ErrorKind;
-use std::iter::{Filter, Flatten};
+use std::iter::Flatten;
 use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -17,8 +17,11 @@ use std::sync::mpsc::Sender;
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 type DirectoryEntryIterator = Flatten<ReadDir>;
 
-#[cfg(any(target_os = "macos", target_os = "linux"))]
-type DirectoryEntryIterator = Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
+#[cfg(target_os = "macos")]
+type DirectoryEntryIterator = std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
+
+#[cfg(target_os = "linux")]
+type DirectoryEntryIterator = std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
 
 #[derive(Debug)]
 pub struct DirectoryScanner<'a, T>
@@ -222,10 +225,12 @@ where
     }
 
     #[cfg(target_os = "linux")]
-    fn entry_iterator(path: &Path) -> Option<Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>> {
+    fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
             Ok(iter) => {
-                let iter = iter.flatten().filter(|p| !p.path().starts_with("/proc"));
+                let iter = iter
+                    .flatten()
+                    .filter((|p| !p.path().starts_with("/proc")) as fn(&DirEntry) -> bool);
                 Some(iter)
             }
             Err(e) => {
