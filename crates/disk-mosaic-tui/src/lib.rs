@@ -1,4 +1,4 @@
-mod settings;
+pub mod settings;
 
 use crate::settings::Settings;
 use crossterm::{
@@ -27,8 +27,8 @@ use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 use treemap::{Mappable, Rect, TreemapLayout};
 
-pub fn start(path: PathBuf) -> Result<(), String> {
-    if let Err(e) = TextUi::run(path) {
+pub fn start(path: PathBuf, settings: Settings) -> Result<(), String> {
+    if let Err(e) = TextUi::new(path, settings).run() {
         return Err(format!("Error running text UI: {e}"));
     }
 
@@ -43,18 +43,31 @@ pub struct TextUi {
     file_count: u64,
     total_size: u64,
     current_scanning_path: Option<String>,
+    settings: Settings,
 }
 
 impl TextUi {
-    pub fn run(path: PathBuf) -> io::Result<()> {
+    fn new(path: PathBuf, settings: Settings) -> Self {
+        let root_data = Data::new_directory(&path);
+        Self {
+            analysis_result: AnalysisResult::new(path, vec![root_data]),
+            table_state: TableState::default(),
+            scanned_directories: 0,
+            file_count: 0,
+            total_size: 0,
+            current_scanning_path: None,
+            settings,
+        }
+    }
+
+    pub fn run(self) -> io::Result<()> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
 
-        let app = TextUi::new(path);
-        let res = app.run_loop(&mut terminal);
+        let res = self.run_loop(&mut terminal);
 
         disable_raw_mode()?;
         execute!(
@@ -71,18 +84,6 @@ impl TextUi {
         Ok(())
     }
 
-    fn new(path: PathBuf) -> Self {
-        let root_data = Data::new_directory(&path);
-        Self {
-            analysis_result: AnalysisResult::new(path, vec![root_data]),
-            table_state: TableState::default(),
-            scanned_directories: 0,
-            file_count: 0,
-            total_size: 0,
-            current_scanning_path: None,
-        }
-    }
-
     fn run_loop<B: Backend>(mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
         let stopper = Arc::new(AtomicBool::new(false));
         let (tx, rx) = std::sync::mpsc::channel();
@@ -90,8 +91,9 @@ impl TextUi {
         let stopper_clone = Arc::clone(&stopper);
         let path_clone = self.analysis_result.root_path.clone();
 
+        let settings = self.settings.clone();
         std::thread::spawn(move || {
-            DirectoryScanner::scan_directory_channel(&path_clone, &tx, &stopper_clone, Settings);
+            DirectoryScanner::scan_directory_channel(&path_clone, &tx, &stopper_clone, settings);
         });
 
         let mut last_tick = Instant::now();
