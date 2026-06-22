@@ -14,6 +14,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+type DirectoryEntryIterator = Flatten<ReadDir>;
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+type DirectoryEntryIterator = Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
+
 #[derive(Debug)]
 pub struct DirectoryScanner<'a, T>
 where
@@ -182,7 +188,7 @@ where
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    fn entry_iterator(path: &Path) -> Option<Flatten<std::fs::ReadDir>> {
+    fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
             Ok(iter) => {
                 let iter = iter.flatten();
@@ -198,7 +204,7 @@ where
     }
 
     #[cfg(target_os = "macos")]
-    fn entry_iterator(path: &Path) -> Option<Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>> {
+    fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
             Ok(iter) => {
                 let iter: Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool> = iter
