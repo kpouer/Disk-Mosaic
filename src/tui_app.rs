@@ -2,7 +2,6 @@
 compile_error!("tui app is text only, do not activate gui feature. Use bin DiskMosaic instead");
 
 use std::path::PathBuf;
-use std::process::exit;
 use std::sync::Arc;
 use clap::Parser;
 use disk_mosaic_tui::settings::Settings;

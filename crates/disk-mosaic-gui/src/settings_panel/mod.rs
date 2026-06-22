@@ -68,7 +68,7 @@ impl<'a> SettingsDialog<'a> {
                         }
                         ui.end_row();
                         ui.label("Ignore common cloud folders:");
-                        let chk = ui.checkbox(&mut *self.settings.ignore_cloud_mounts_mut(), "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
+                        let chk = ui.checkbox(&mut self.settings.ignore_cloud_mounts_mut(), "Automatically exclude Dropbox, OneDrive, Google Drive, iCloud, etc.");
                         if chk.changed() {
                             self.settings.set_dirty(true);
                         }
