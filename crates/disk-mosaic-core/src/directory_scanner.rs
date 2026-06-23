@@ -210,7 +210,7 @@ where
     fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
             Ok(iter) => {
-                let iter: Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool> = iter
+                let iter: std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool> = iter
                     .flatten()
                     .filter(|p| !p.path().starts_with("/System/Volumes"));
                 Some(iter)
@@ -270,25 +270,35 @@ where
         }
 
         let entry_path = entry.path();
-        let metadata = match entry.metadata() {
-            Ok(m) => m,
+
+        match entry.file_type() {
+            Ok(f) => {
+                if f.is_dir() {
+                    if let Some(dir_data) = self.process_dir(&entry_path) {
+                        items.push(dir_data);
+                    }
+                } else if f.is_file() {
+                    let metadata = match entry.metadata() {
+                        Ok(m) => m,
+                        Err(e) => {
+                            debug!("Failed to get metadata for {entry_path:?}: {e}");
+                            return (items, count_and_size);
+                        }
+                    };
+                    let file_size = util::get_file_size(&metadata);
+                    if file_size < big_file_threshold {
+                        count_and_size.push(file_size);
+                    } else {
+                        items.push(Data::new_file(&entry_path, file_size));
+                    }
+                }
+            }
             Err(e) => {
-                debug!("Failed to get metadata for {entry_path:?}: {e}");
+                debug!("Failed to get files for {entry_path:?}: {e}");
                 return (items, count_and_size);
             }
-        };
-        if metadata.is_dir() {
-            if let Some(dir_data) = self.process_dir(&entry_path) {
-                items.push(dir_data);
-            }
-        } else if metadata.is_file() {
-            let file_size = util::get_file_size(&metadata);
-            if file_size < big_file_threshold {
-                count_and_size.push(file_size);
-            } else {
-                items.push(Data::new_file(&entry_path, file_size));
-            }
         }
+
         (items, count_and_size)
     }
 
