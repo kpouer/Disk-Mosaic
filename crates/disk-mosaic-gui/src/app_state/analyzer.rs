@@ -76,7 +76,7 @@ impl Analyzer {
             return AnalyzerUpdate::GoBack;
         }
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             TreeMapPanel::new(&mut self.analysis_result, &self.settings, false).show(ui);
         });
         ui.ctx().request_repaint_after(Duration::from_millis(60));
@@ -115,7 +115,7 @@ impl Analyzer {
 
     fn show_top_panel(&mut self, ui: &mut Ui) -> AnalyzerUpdate {
         let mut update_status = AnalyzerUpdate::Running;
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("⬅").clicked() {
                     update_status = AnalyzerUpdate::GoBack;

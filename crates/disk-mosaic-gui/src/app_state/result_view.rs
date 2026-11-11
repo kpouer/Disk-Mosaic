@@ -23,7 +23,7 @@ impl ResultView {
 
     pub(crate) fn show(&mut self, ui: &mut Ui) -> bool {
         let mut go_back = false;
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("⬅").clicked() {
                     go_back = true;
@@ -35,7 +35,7 @@ impl ResultView {
                 });
             });
         });
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             TreeMapPanel::new(&mut self.analysis_result, &self.settings, true).show(ui);
         });
 

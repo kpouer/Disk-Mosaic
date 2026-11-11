@@ -31,7 +31,7 @@ impl SelectTarget {
     }
 
     pub(crate) fn show(&mut self, ui: &mut Ui) -> Option<PathBuf> {
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Select Scan Target");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -41,7 +41,7 @@ impl SelectTarget {
             });
         });
         egui::CentralPanel::default()
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 let tint_color = icon_color(self.settings.color_scheme());
                 let mut selected_path = None;
                 self.storage_manager.iter().for_each(|disk| {

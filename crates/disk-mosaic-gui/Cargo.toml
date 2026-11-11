@@ -17,7 +17,7 @@ disk-mosaic-core = {
 egui.workspace = true
 egui_extras = { workspace = true, features = ["svg"] }
 eframe.workspace = true
-egui_solarized = "0.34"
+egui_solarized = "0.36.0"
 home.workspace = true
 humansize.workspace = true
 log.workspace = true
