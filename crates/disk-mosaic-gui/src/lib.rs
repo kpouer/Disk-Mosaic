@@ -32,7 +32,9 @@ pub fn start(path: Option<PathBuf>) -> Result<(), String> {
             let settings = Settings::default();
             settings.init(&ctx.egui_ctx);
             Ok(Box::new(crate::disk_analyzer::DiskAnalyzerApp::new(
-                settings, path,
+                settings,
+                path,
+                &ctx.egui_ctx,
             )))
         }),
     )

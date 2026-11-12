@@ -7,6 +7,7 @@ use eframe::Frame;
 use egui::{Context, Ui};
 use log::{error, info};
 use std::path::PathBuf;
+use crate::settings_panel::{SettingsContext, SettingsDialog};
 
 #[derive(Debug)]
 enum AppState {
@@ -17,7 +18,7 @@ enum AppState {
 }
 
 impl DiskAnalyzerApp {
-    pub(crate) fn new(_settings: Settings, initial_path: Option<PathBuf>) -> Self {
+    pub(crate) fn new(_settings: Settings, initial_path: Option<PathBuf>, _ctx: &Context) -> Self {
         let settings = Settings::default();
         let state = match initial_path {
             Some(path) => {
@@ -31,8 +32,9 @@ impl DiskAnalyzerApp {
         Self {
             settings,
             state,
+            settings_context: SettingsContext::default(),
             #[cfg(target_os = "macos")]
-            native_menu: match crate::macos_menu::NativeMenu::new() {
+            native_menu: match crate::macos_menu::NativeMenu::new(_ctx.clone()) {
                 Ok(menu) => Some(menu),
                 Err(err) => {
                     log::error!("Unable to create native menu: {err}");
@@ -47,6 +49,7 @@ impl DiskAnalyzerApp {
 pub(crate) struct DiskAnalyzerApp {
     settings: Settings,
     state: AppState,
+    settings_context: SettingsContext,
     #[cfg(target_os = "macos")]
     native_menu: Option<crate::macos_menu::NativeMenu>,
 }
@@ -63,6 +66,11 @@ impl eframe::App for DiskAnalyzerApp {
                     self.state = SelectTarget::new(self.settings.clone())
                         .map(SelectDisk)
                         .unwrap_or_else(Error);
+                    ctx.request_repaint();
+                }
+                crate::macos_menu::MenuAction::Settings => {
+                    info!("Open settings requested from native menu");
+                    self.settings_context.open();
                     ctx.request_repaint();
                 }
             }
@@ -105,6 +113,8 @@ impl eframe::App for DiskAnalyzerApp {
             }
             AppState::Error(error) => error!("{error}"),
         }
+
+        SettingsDialog::new(&mut self.settings_context, &self.settings).show_if_open(ui);
 
         if ui.ctx().input(|i| i.viewport().close_requested()) {
             self.settings.save().expect("Unable to save settings");

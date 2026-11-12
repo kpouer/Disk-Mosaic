@@ -35,6 +35,13 @@ impl<'a> SettingsDialog<'a> {
         }
     }
 
+    /// Shows the window if it is open, without any button.
+    pub(crate) fn show_if_open(&mut self, ui: &mut Ui) {
+        if self.settings_context.open {
+            self.show(ui);
+        }
+    }
+
     fn show(&mut self, ui: &mut Ui) {
         egui::Window::new("Settings")
             .open(&mut self.settings_context.open)
@@ -196,4 +203,10 @@ impl<'a, T> HashListPanel<'a, T> {
 pub(crate) struct SettingsContext {
     open: bool,
     ignored_folders_selection: Option<usize>,
+}
+
+impl SettingsContext {
+    pub(crate) const fn open(&mut self) {
+        self.open = true;
+    }
 }

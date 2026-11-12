@@ -5,12 +5,15 @@ use muda::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu
 
 pub(crate) enum MenuAction {
     SelectDisk,
+    Settings,
 }
 
 pub(crate) struct NativeMenu {
     // Keeps the menu alive for the lifetime of the app.
     _menu: Menu,
+    events: std::sync::mpsc::Receiver<MenuEvent>,
     select_disk_id: muda::MenuId,
+    settings_id: muda::MenuId,
 }
 
 impl std::fmt::Debug for NativeMenu {
@@ -20,7 +23,13 @@ impl std::fmt::Debug for NativeMenu {
 }
 
 impl NativeMenu {
-    pub(crate) fn new() -> Result<Self, muda::Error> {
+    pub(crate) fn new(ctx: egui::Context) -> Result<Self, muda::Error> {
+        // Forward menu events and wake the (otherwise idle) egui event loop.
+        let (tx, events) = std::sync::mpsc::channel();
+        MenuEvent::set_event_handler(Some(move |event| {
+            let _ = tx.send(event);
+            ctx.request_repaint();
+        }));
         let menu = Menu::new();
 
         let app_menu = Submenu::new("Disk Mosaic", true);
@@ -49,9 +58,16 @@ impl NativeMenu {
             true,
             Some(Accelerator::new(Modifiers::META, Code::KeyO)),
         );
+        let settings = MenuItem::new(
+            "Settings",
+            true,
+            None,
+        );
         let file_menu = Submenu::new("File", true);
         file_menu.append_items(&[
             &select_disk,
+            &PredefinedMenuItem::separator(),
+            &settings,
             &PredefinedMenuItem::separator(),
             &PredefinedMenuItem::close_window(None),
         ])?;
@@ -70,16 +86,20 @@ impl NativeMenu {
 
         Ok(Self {
             select_disk_id: select_disk.id().clone(),
+            settings_id: settings.id().clone(),
             _menu: menu,
+            events,
         })
     }
 
     /// Drains pending menu events and returns the first app-specific action.
     pub(crate) fn poll(&self) -> Option<MenuAction> {
         let mut action = None;
-        while let Ok(event) = MenuEvent::receiver().try_recv() {
+        while let Ok(event) = self.events.try_recv() {
             if event.id == self.select_disk_id {
                 action = Some(MenuAction::SelectDisk);
+            } else if event.id == self.settings_id {
+                action = Some(MenuAction::Settings);
             }
         }
         action
