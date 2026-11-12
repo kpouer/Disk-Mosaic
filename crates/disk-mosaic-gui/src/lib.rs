@@ -1,3 +1,4 @@
+use log::warn;
 use settings::Settings;
 use std::path::PathBuf;
 
@@ -46,8 +47,8 @@ fn icon_data() -> egui::IconData {
     let app_icon_png_bytes =
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/icon.png"));
 
-    match eframe::icon_data::from_png_bytes(app_icon_png_bytes) {
-        Ok(icon_data) => icon_data,
-        Err(err) => panic!("Failed to load app icon: {err}"),
-    }
+    eframe::icon_data::from_png_bytes(app_icon_png_bytes).unwrap_or_else(|err| {
+        warn!("Failed to load app icon: {err}");
+        egui::IconData::default()
+    })
 }
