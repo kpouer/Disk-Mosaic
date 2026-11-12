@@ -1,6 +1,6 @@
 [package]
 name = "disk-mosaic-gui"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -9,11 +9,7 @@ description = "This is a library used for Terminal User Interface of https://cra
 readme = "README.md"
 
 [dependencies]
-disk-mosaic-core = {
-    path = "../disk-mosaic-core",
-    version = "0.1.1",
-    features = ["gui"]
-}
+disk-mosaic-core = { workspace = true, features = ["gui"] }
 egui.workspace = true
 egui_extras = { workspace = true, features = ["svg"] }
 eframe.workspace = true

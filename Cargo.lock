@@ -1102,7 +1102,7 @@ dependencies = [
 
 [[package]]
 name = "disk-mosaic-core"
-version = "0.1.1"
+version = "0.2.1"
 dependencies = [
  "ecolor",
  "log",
@@ -1114,7 +1114,7 @@ dependencies = [
 
 [[package]]
 name = "disk-mosaic-gui"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "disk-mosaic-core",
  "eframe",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "disk-mosaic-tui"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "crossterm",
  "disk-mosaic-core",
