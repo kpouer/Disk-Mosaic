@@ -25,3 +25,5 @@ strum = "0.28"
 strum_macros = "0.28"
 sysinfo = "0.39"
 treemap.workspace = true
+[target.'cfg(target_os = "macos")'.dependencies]
+muda = "0.21"

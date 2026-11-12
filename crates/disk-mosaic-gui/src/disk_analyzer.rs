@@ -25,7 +25,18 @@ impl DiskAnalyzerApp {
             }
             None => SelectDisk(SelectTarget::new(settings.clone())),
         };
-        Self { settings, state }
+        Self {
+            settings,
+            state,
+            #[cfg(target_os = "macos")]
+            native_menu: match crate::macos_menu::NativeMenu::new() {
+                Ok(menu) => Some(menu),
+                Err(err) => {
+                    log::error!("Unable to create native menu: {err}");
+                    None
+                }
+            },
+        }
     }
 }
 
@@ -33,10 +44,27 @@ impl DiskAnalyzerApp {
 pub(crate) struct DiskAnalyzerApp {
     settings: Settings,
     state: AppState,
+    #[cfg(target_os = "macos")]
+    native_menu: Option<crate::macos_menu::NativeMenu>,
 }
 
 impl eframe::App for DiskAnalyzerApp {
-    fn logic(&mut self, _: &Context, _: &mut Frame) {}
+    fn logic(&mut self, ctx: &Context, _: &mut Frame) {
+        #[cfg(target_os = "macos")]
+        if let Some(menu) = &self.native_menu
+            && let Some(action) = menu.poll()
+        {
+            match action {
+                crate::macos_menu::MenuAction::SelectDisk => {
+                    info!("Select disk requested from native menu");
+                    self.state = AppState::SelectDisk(SelectTarget::new(self.settings.clone()));
+                    ctx.request_repaint();
+                }
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = ctx;
+    }
 
     fn ui(&mut self, ui: &mut Ui, _: &mut Frame) {
         match &mut self.state {
