@@ -1,5 +1,6 @@
 //! Native macOS menu bar built with `muda`.
 
+use crate::about_dialog::{APP_NAME, AUTHOR_CREDITS};
 use muda::accelerator::{Accelerator, Code, Modifiers};
 use muda::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 
@@ -37,9 +38,9 @@ impl NativeMenu {
             &PredefinedMenuItem::about(
                 None,
                 Some(AboutMetadata {
-                    name: Some("Disk Mosaic".into()),
+                    name: Some(APP_NAME.into()),
                     version: Some(env!("CARGO_PKG_VERSION").into()),
-                    authors: Some(vec!["Matthieu Casanova".into()]),
+                    credits: Some(AUTHOR_CREDITS.into()),
                     ..Default::default()
                 }),
             ),

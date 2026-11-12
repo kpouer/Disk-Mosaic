@@ -1,7 +1,5 @@
 use crate::FONT_SIZE;
-use crate::about_dialog::AboutDialog;
 use crate::settings::{ColorScheme, Settings};
-use crate::settings_panel::{SettingsContext, SettingsDialog};
 use crate::storage_manager::StorageManager;
 use crate::storage_manager::storage::Storage;
 use disk_mosaic_core::util::PathBufToString;
@@ -14,8 +12,6 @@ use std::path::PathBuf;
 pub(crate) struct SelectTarget {
     settings: Settings,
     storage_manager: StorageManager,
-    about_open: bool,
-    settings_context: SettingsContext,
 }
 
 const HOME_FOLDER: &str = "Home Folder";
@@ -23,10 +19,8 @@ const HOME_FOLDER: &str = "Home Folder";
 impl SelectTarget {
     pub(crate) fn new(settings: Settings) -> Result<Self, sysinfo::Error> {
         Ok(Self {
-            settings_context: SettingsContext::default(),
             settings,
             storage_manager: StorageManager::new()?,
-            about_open: false,
         })
     }
 
@@ -34,10 +28,6 @@ impl SelectTarget {
         egui::Panel::top("top_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Select Scan Target");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    AboutDialog::new(&mut self.about_open).show_button(ui);
-                    SettingsDialog::new(&mut self.settings_context, &self.settings).show_button(ui);
-                });
             });
         });
         egui::CentralPanel::default()

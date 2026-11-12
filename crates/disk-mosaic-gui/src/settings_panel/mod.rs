@@ -13,8 +13,6 @@ pub(crate) struct SettingsDialog<'a> {
     settings: &'a Settings,
 }
 
-const GEAR: &str = "\u{2699}";
-
 impl<'a> SettingsDialog<'a> {
     pub(crate) const fn new(
         settings_context: &'a mut SettingsContext,
@@ -23,15 +21,6 @@ impl<'a> SettingsDialog<'a> {
         Self {
             settings_context,
             settings,
-        }
-    }
-
-    pub(crate) fn show_button(&mut self, ui: &mut Ui) {
-        if ui.button(GEAR).clicked() {
-            self.settings_context.open = true;
-        }
-        if self.settings_context.open {
-            self.show(ui);
         }
     }
 

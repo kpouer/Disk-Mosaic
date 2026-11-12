@@ -1,5 +1,8 @@
 use egui::Ui;
 
+pub(crate) const APP_NAME: &str = "Disk Mosaic";
+pub(crate) const AUTHOR_CREDITS: &str = "Created by Matthieu Casanova";
+
 #[derive(Debug)]
 pub(crate) struct AboutDialog<'a> {
     open: &'a mut bool,
@@ -23,9 +26,9 @@ impl<'a> AboutDialog<'a> {
         egui::Window::new("About Disk Mosaic")
             .open(self.open)
             .show(ui.ctx(), |ui| {
-                ui.label("Disk Mosaic");
+                ui.label(APP_NAME);
                 ui.label(format!("Version {}", env!("CARGO_PKG_VERSION")));
-                ui.label("Created by Matthieu Casanova");
+                ui.label(AUTHOR_CREDITS);
             });
     }
 }
