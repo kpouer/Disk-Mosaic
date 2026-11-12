@@ -158,6 +158,9 @@ where
     }
 
     fn scan_directory_recursive(&self, path: &Path) -> Result<Vec<Data>, MyError> {
+        if self.stopper.load(Ordering::Relaxed) {
+            return Ok(Vec::new());
+        }
         if let Err(e) = self
             .sender
             .send(Message::DirectoryScanStart(path.absolute_path()))
