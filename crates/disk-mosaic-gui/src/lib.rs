@@ -8,6 +8,7 @@ mod data_widget;
 mod disk_analyzer;
 #[cfg(target_os = "macos")]
 mod macos_menu;
+mod menu;
 mod path_bar;
 pub mod settings;
 mod settings_panel;

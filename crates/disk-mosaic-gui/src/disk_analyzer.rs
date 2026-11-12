@@ -1,3 +1,4 @@
+use crate::menu::MenuAction;
 use crate::app_state::analyzer::{Analyzer, AnalyzerUpdate};
 use crate::app_state::result_view::ResultView;
 use crate::app_state::select_target::SelectTarget;
@@ -45,6 +46,26 @@ impl DiskAnalyzerApp {
     }
 }
 
+impl DiskAnalyzerApp {
+    fn handle_menu_action(&mut self, ctx: &Context, action: MenuAction) {
+        match action {
+            MenuAction::SelectDisk => {
+                info!("Select disk requested from menu");
+                self.state = SelectTarget::new(self.settings.clone())
+                    .map(SelectDisk)
+                    .unwrap_or_else(Error);
+            }
+            MenuAction::Settings => {
+                info!("Open settings requested from menu");
+                self.settings_context.open();
+            }
+            #[cfg(not(target_os = "macos"))]
+            MenuAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+        }
+        ctx.request_repaint();
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct DiskAnalyzerApp {
     settings: Settings,
@@ -60,26 +81,18 @@ impl eframe::App for DiskAnalyzerApp {
         if let Some(menu) = &self.native_menu
             && let Some(action) = menu.poll()
         {
-            match action {
-                crate::macos_menu::MenuAction::SelectDisk => {
-                    info!("Select disk requested from native menu");
-                    self.state = SelectTarget::new(self.settings.clone())
-                        .map(SelectDisk)
-                        .unwrap_or_else(Error);
-                    ctx.request_repaint();
-                }
-                crate::macos_menu::MenuAction::Settings => {
-                    info!("Open settings requested from native menu");
-                    self.settings_context.open();
-                    ctx.request_repaint();
-                }
-            }
+            self.handle_menu_action(ctx, action);
         }
         #[cfg(not(target_os = "macos"))]
         let _ = ctx;
     }
 
     fn ui(&mut self, ui: &mut Ui, _: &mut Frame) {
+        #[cfg(not(target_os = "macos"))]
+        if let Some(action) = crate::menu::show_menu_bar(ui) {
+            self.handle_menu_action(&ui.ctx().clone(), action);
+        }
+
         match &mut self.state {
             AppState::SelectDisk(select_target) => {
                 if let Some(selected_path) = select_target.show(ui) {

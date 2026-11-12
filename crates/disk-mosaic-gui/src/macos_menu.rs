@@ -1,13 +1,9 @@
 //! Native macOS menu bar built with `muda`.
 
+use crate::menu::MenuAction;
 use crate::about_dialog::{APP_NAME, AUTHOR_CREDITS};
 use muda::accelerator::{Accelerator, Code, Modifiers};
 use muda::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
-
-pub(crate) enum MenuAction {
-    SelectDisk,
-    Settings,
-}
 
 pub(crate) struct NativeMenu {
     // Keeps the menu alive for the lifetime of the app.
