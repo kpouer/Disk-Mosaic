@@ -1,10 +1,10 @@
 #[cfg(any(feature = "gui", not(feature = "tui")))]
 compile_error!("tui app is text only, do not activate gui feature. Use bin DiskMosaic instead");
 
-use std::path::PathBuf;
-use std::sync::Arc;
 use clap::Parser;
 use disk_mosaic_tui::settings::Settings;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -37,13 +37,14 @@ fn main() -> Result<(), String> {
         std::process::exit(1);
     });
 
-    let ignored_path = args.exclude
+    let ignored_path = args
+        .exclude
         .iter()
         .map(|f| f.canonicalize())
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
     let settings = Settings {
-        ignored_path: Arc::new(ignored_path)
+        ignored_path: Arc::new(ignored_path),
     };
     disk_mosaic_tui::start(path, settings)
 }

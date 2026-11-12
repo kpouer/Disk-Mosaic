@@ -3,8 +3,8 @@
 #[cfg(not(feature = "gui"))]
 compile_error!("You must activate at least one feature among `gui`.");
 
-use std::path::PathBuf;
 use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

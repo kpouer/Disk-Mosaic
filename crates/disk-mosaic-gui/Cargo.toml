@@ -17,13 +17,13 @@ egui_solarized = "0.36.0"
 home.workspace = true
 humansize.workspace = true
 log.workspace = true
-opener = { version = "0.8.4", features = ["reveal"] }
-rfd = "0.17"
+opener = { version = "0.9", features = ["reveal"] }
+rfd = "0.18"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = "0.28"
 strum_macros = "0.28"
-sysinfo = "0.39"
+sysinfo = "0.40"
 treemap.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 muda = "0.21"

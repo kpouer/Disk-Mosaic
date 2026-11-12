@@ -21,13 +21,13 @@ pub(crate) struct SelectTarget {
 const HOME_FOLDER: &str = "Home Folder";
 
 impl SelectTarget {
-    pub(crate) fn new(settings: Settings) -> Self {
-        Self {
+    pub(crate) fn new(settings: Settings) -> Result<Self, sysinfo::Error> {
+        Ok(Self {
             settings_context: SettingsContext::default(),
             settings,
-            storage_manager: StorageManager::default(),
+            storage_manager: StorageManager::new()?,
             about_open: false,
-        }
+        })
     }
 
     pub(crate) fn show(&mut self, ui: &mut Ui) -> Option<PathBuf> {

@@ -1,15 +1,16 @@
 use crate::app_state::analyzer::{Analyzer, AnalyzerUpdate};
 use crate::app_state::result_view::ResultView;
 use crate::app_state::select_target::SelectTarget;
-use crate::disk_analyzer::AppState::SelectDisk;
+use crate::disk_analyzer::AppState::{Error, SelectDisk};
 use crate::settings::Settings;
 use eframe::Frame;
 use egui::{Context, Ui};
-use log::info;
+use log::{error, info};
 use std::path::PathBuf;
 
 #[derive(Debug)]
 enum AppState {
+    Error(String),
     SelectDisk(SelectTarget),
     Analyzing(Analyzer),
     Analyzed(ResultView),
@@ -23,7 +24,10 @@ impl DiskAnalyzerApp {
                 info!("CLI path provided: {path:?}, starting analysis immediately");
                 AppState::Analyzing(Analyzer::new(path, settings.clone()))
             }
-            None => SelectDisk(SelectTarget::new(settings.clone())),
+            None => match SelectTarget::new(settings.clone()) {
+                Ok(select_target) => SelectDisk(select_target),
+                Err(e) => AppState::Error(format!("{:?}", e)),
+            },
         };
         Self {
             settings,
@@ -57,7 +61,10 @@ impl eframe::App for DiskAnalyzerApp {
             match action {
                 crate::macos_menu::MenuAction::SelectDisk => {
                     info!("Select disk requested from native menu");
-                    self.state = AppState::SelectDisk(SelectTarget::new(self.settings.clone()));
+                    self.state = match SelectTarget::new(self.settings.clone()) {
+                        Ok(select_target) => SelectDisk(select_target),
+                        Err(error) => Error(format!("{:?}", error)),
+                    };
                     ctx.request_repaint();
                 }
             }
@@ -84,16 +91,23 @@ impl eframe::App for DiskAnalyzerApp {
                 }
                 AnalyzerUpdate::GoBack => {
                     info!("Back requested from Analyzer, transitioning to SelectTarget");
-                    self.state = AppState::SelectDisk(SelectTarget::new(self.settings.clone()));
+                    self.state = match SelectTarget::new(self.settings.clone()) {
+                        Ok(select_target) => SelectDisk(select_target),
+                        Err(error) => Error(format!("{:?}", error)),
+                    }
                 }
                 AnalyzerUpdate::Running => {}
             },
             AppState::Analyzed(result_view) => {
                 if result_view.show(ui) {
                     info!("Back requested from ResultView, transitioning to SelectTarget");
-                    self.state = AppState::SelectDisk(SelectTarget::new(self.settings.clone()));
+                    self.state = match SelectTarget::new(self.settings.clone()) {
+                        Ok(select_target) => SelectDisk(select_target),
+                        Err(error) => Error(format!("{:?}", error)),
+                    }
                 }
             }
+            AppState::Error(error) => error!("{error}"),
         }
 
         if ui.ctx().input(|i| i.viewport().close_requested()) {
