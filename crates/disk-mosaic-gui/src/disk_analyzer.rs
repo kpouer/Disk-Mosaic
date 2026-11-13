@@ -1,7 +1,6 @@
 use crate::app_state::analyzer::{Analyzer, AnalyzerUpdate};
 use crate::app_state::result_view::ResultView;
 use crate::app_state::select_target::SelectTarget;
-use crate::disk_analyzer::AppState::{Error, SelectDisk};
 use crate::menu::MenuAction;
 use crate::settings::Settings;
 use crate::settings_panel::{SettingsContext, SettingsDialog};
@@ -27,8 +26,8 @@ impl DiskAnalyzerApp {
                 AppState::Analyzing(Analyzer::new(path, settings.clone()))
             }
             None => SelectTarget::new(settings.clone())
-                .map(SelectDisk)
-                .unwrap_or_else(Error),
+                .map(AppState::SelectDisk)
+                .unwrap_or_else(AppState::Error),
         };
         Self {
             settings,
@@ -52,8 +51,8 @@ impl DiskAnalyzerApp {
             MenuAction::SelectDisk => {
                 info!("Select disk requested from menu");
                 self.state = SelectTarget::new(self.settings.clone())
-                    .map(SelectDisk)
-                    .unwrap_or_else(Error);
+                    .map(AppState::SelectDisk)
+                    .unwrap_or_else(AppState::Error);
             }
             MenuAction::Settings => {
                 info!("Open settings requested from menu");
@@ -111,8 +110,8 @@ impl eframe::App for DiskAnalyzerApp {
                 AnalyzerUpdate::GoBack => {
                     info!("Back requested from Analyzer, transitioning to SelectTarget");
                     self.state = SelectTarget::new(self.settings.clone())
-                        .map(SelectDisk)
-                        .unwrap_or_else(Error)
+                        .map(AppState::SelectDisk)
+                        .unwrap_or_else(AppState::Error)
                 }
                 AnalyzerUpdate::Running => {}
             },
@@ -120,8 +119,8 @@ impl eframe::App for DiskAnalyzerApp {
                 if result_view.show(ui) {
                     info!("Back requested from ResultView, transitioning to SelectTarget");
                     self.state = SelectTarget::new(self.settings.clone())
-                        .map(SelectDisk)
-                        .unwrap_or_else(Error)
+                        .map(AppState::SelectDisk)
+                        .unwrap_or_else(AppState::Error)
                 }
             }
             AppState::Error(error) => error!("{error}"),
