@@ -27,7 +27,7 @@ impl<'a> PathBar<'a> {
                 .for_each(|(index, data)| {
                     let is_last = index == self.analysis_result.data_stack.len() - 1;
                     if ui
-                        .add_enabled(!is_last, Button::new(format!("{}/", &data.name)))
+                        .add_enabled(!is_last, Button::new(format!("{}/", data.name)))
                         .clicked()
                     {
                         clicked_index = Some(index);
