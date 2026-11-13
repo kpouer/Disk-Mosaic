@@ -14,13 +14,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
-type DirectoryEntryIterator = Flatten<ReadDir>;
-
-#[cfg(target_os = "macos")]
-type DirectoryEntryIterator = std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
-
-#[cfg(target_os = "linux")]
 type DirectoryEntryIterator = std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
 
 #[derive(Debug)]
@@ -193,11 +186,12 @@ where
         Ok(scanned_children)
     }
 
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
             Ok(iter) => {
-                let iter = iter.flatten();
+                let iter: DirectoryEntryIterator = iter
+                    .flatten()
+                    .filter(|p| !Self::is_excluded(&p.path()));
                 Some(iter)
             }
             Err(e) => {
@@ -207,42 +201,21 @@ where
                 None
             }
         }
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    fn is_excluded(_path: &Path) -> bool {
+        false
     }
 
     #[cfg(target_os = "macos")]
-    fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
-        match path.read_dir() {
-            Ok(iter) => {
-                let iter: std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool> = iter
-                    .flatten()
-                    .filter(|p| !p.path().starts_with("/System/Volumes"));
-                Some(iter)
-            }
-            Err(e) => {
-                if e.kind() != ErrorKind::PermissionDenied {
-                    debug!("Error reading directory: {path:?}, {e:?}");
-                }
-                None
-            }
-        }
+    fn is_excluded(path: &Path) -> bool {
+        path.starts_with("/System/Volumes")
     }
 
     #[cfg(target_os = "linux")]
-    fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
-        match path.read_dir() {
-            Ok(iter) => {
-                let iter = iter
-                    .flatten()
-                    .filter((|p| !p.path().starts_with("/proc")) as fn(&DirEntry) -> bool);
-                Some(iter)
-            }
-            Err(e) => {
-                if e.kind() != ErrorKind::PermissionDenied {
-                    debug!("Error reading directory: {path:?}, {e:?}");
-                }
-                None
-            }
-        }
+    fn is_excluded(path: &Path) -> bool {
+        path.starts_with("/proc/")
     }
 
     fn collect_children<IT>(&self, big_file_threshold: u64, entries: IT) -> Vec<Data>
