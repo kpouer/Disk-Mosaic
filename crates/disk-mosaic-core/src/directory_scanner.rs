@@ -96,32 +96,42 @@ where
         let mut scan_result = ScanResult::default();
         match path.read_dir() {
             Ok(iter) => {
-                iter.flatten().map(|p| p.path()).for_each(|path| {
+                for dir_entry in iter.flatten() {
                     if stopper.load(Ordering::Relaxed) {
                         info!("Stop requested");
-                        return;
+                        break;
                     }
+                    let path = dir_entry.path();
                     if is_excluded(&path) {
-                        return;
+                        continue;
                     }
-                    if path.is_dir() {
-                        if settings.is_path_ignored(&path) {
-                            info!("Ignoring path: {path:?}");
-                            return;
+                    match dir_entry.file_type() {
+                        Ok(file_type) => {
+                            if file_type.is_dir() {
+                                if settings.is_path_ignored(&path) {
+                                    info!("Ignoring path: {path:?}");
+                                    continue;
+                                }
+                                let data =
+                                    DirectoryScanner::new(path, stopper, sender.clone(), &settings)
+                                        .run();
+                                if data.size > 0 {
+                                    Self::send_message(sender, Message::Data(data));
+                                }
+                            } else if file_type.is_file() {
+                                let size = dir_entry
+                                    .metadata()
+                                    .map_or(0, |metadata| util::get_file_size(&metadata));
+                                scan_result.add_size(size);
+                                Self::send_message(
+                                    sender,
+                                    Message::Data(Data::new_file(&path, size)),
+                                );
+                            }
                         }
-                        let data =
-                            DirectoryScanner::new(path, stopper, sender.clone(), &settings).run();
-                        if data.size > 0 {
-                            Self::send_message(sender, Message::Data(data));
-                        }
-                    } else if path.is_file() {
-                        let size = path
-                            .metadata()
-                            .map_or(0, |metadata| util::get_file_size(&metadata));
-                        scan_result.add_size(size);
-                        Self::send_message(sender, Message::Data(Data::new_file(&path, size)));
+                        Err(e) => debug!("Error reading file {path:?}: {e}"),
                     }
-                });
+                }
             }
             Err(e) => match e.kind() {
                 ErrorKind::PermissionDenied => {}
@@ -207,9 +217,8 @@ where
     fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
             Ok(iter) => {
-                let iter: DirectoryEntryIterator = iter
-                    .flatten()
-                    .filter(|p| !is_excluded(&p.path()));
+                let iter: DirectoryEntryIterator =
+                    iter.flatten().filter(|p| !is_excluded(&p.path()));
                 Some(iter)
             }
             Err(e) => {
