@@ -16,6 +16,21 @@ use std::sync::mpsc::Sender;
 
 type DirectoryEntryIterator = std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
 
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn is_excluded(_path: &Path) -> bool {
+    false
+}
+
+#[cfg(target_os = "macos")]
+fn is_excluded(path: &Path) -> bool {
+    path.starts_with("/System/Volumes")
+}
+
+#[cfg(target_os = "linux")]
+fn is_excluded(path: &Path) -> bool {
+    path.starts_with("/proc")
+}
+
 #[derive(Debug)]
 pub struct DirectoryScanner<'a, T>
 where
@@ -84,6 +99,9 @@ where
                 iter.flatten().map(|p| p.path()).for_each(|path| {
                     if stopper.load(Ordering::Relaxed) {
                         info!("Stop requested");
+                        return;
+                    }
+                    if is_excluded(&path) {
                         return;
                     }
                     if path.is_dir() {
@@ -191,7 +209,7 @@ where
             Ok(iter) => {
                 let iter: DirectoryEntryIterator = iter
                     .flatten()
-                    .filter(|p| !Self::is_excluded(&p.path()));
+                    .filter(|p| !is_excluded(&p.path()));
                 Some(iter)
             }
             Err(e) => {
@@ -201,21 +219,6 @@ where
                 None
             }
         }
-    }
-
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    fn is_excluded(_path: &Path) -> bool {
-        false
-    }
-
-    #[cfg(target_os = "macos")]
-    fn is_excluded(path: &Path) -> bool {
-        path.starts_with("/System/Volumes")
-    }
-
-    #[cfg(target_os = "linux")]
-    fn is_excluded(path: &Path) -> bool {
-        path.starts_with("/proc/")
     }
 
     fn collect_children<IT>(&self, big_file_threshold: u64, entries: IT) -> Vec<Data>
