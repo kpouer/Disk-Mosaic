@@ -89,7 +89,7 @@ impl eframe::App for DiskAnalyzerApp {
     fn ui(&mut self, ui: &mut Ui, _: &mut Frame) {
         #[cfg(not(target_os = "macos"))]
         if let Some(action) = crate::menu::show_menu_bar(ui) {
-            self.handle_menu_action(&ui.ctx().clone(), action);
+            self.handle_menu_action(&ui.ctx(), action);
         }
 
         match &mut self.state {
