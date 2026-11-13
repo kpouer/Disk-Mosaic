@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock, RwLockWriteGuard};
+use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use strum_macros::{Display, EnumIter, EnumString};
 
 #[derive(Default, Debug, Clone)]
@@ -15,69 +15,78 @@ pub(crate) struct Settings {
 
 impl ScanConfig for Settings {
     fn big_file_threshold(&self) -> u64 {
-        self.inner.read().unwrap().big_file_threshold
+        self.read().big_file_threshold
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
-        self.inner.read().unwrap().is_path_ignored(path)
+        self.read().is_path_ignored(path)
     }
 }
 
 impl Settings {
+    /// A poisoned lock still holds valid settings: recover it instead of panicking.
+    fn read(&self) -> RwLockReadGuard<'_, InnerSettings> {
+        self.inner.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn write(&self) -> RwLockWriteGuard<'_, InnerSettings> {
+        self.inner.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
     pub(crate) fn big_file_threshold_mut(&self) -> SettingsBigFileThresholdMut<'_> {
         SettingsBigFileThresholdMut {
-            settings: self.inner.write().unwrap(),
+            settings: self.write(),
         }
     }
 
     pub(crate) fn reset_big_file_threshold(&self) {
-        let mut settings = self.inner.write().unwrap();
+        let mut settings = self.write();
         settings.big_file_threshold = BIG_FILE_THRESHOLD;
         settings.dirty = true;
     }
 
     pub(crate) fn color_scheme(&self) -> ColorScheme {
-        self.inner.read().unwrap().color_scheme
+        self.read().color_scheme
     }
 
     pub(crate) fn color_scheme_mut(&self) -> SettingsColorSchemeMut<'_> {
         SettingsColorSchemeMut {
-            settings: self.inner.write().unwrap(),
+            settings: self.write(),
         }
     }
 
     pub(crate) fn ignored_paths_mut(&self) -> SettingsIgnoredPathMut<'_> {
         SettingsIgnoredPathMut {
-            settings: self.inner.write().unwrap(),
+            settings: self.write(),
         }
     }
 
     pub(crate) fn ignore_cloud_mounts_mut(&self) -> SettingsIgnoreCloudMountsMut<'_> {
         SettingsIgnoreCloudMountsMut {
-            settings: self.inner.write().unwrap(),
+            settings: self.write(),
         }
     }
 
     pub(crate) fn save(&self) -> Result<(), std::io::Error> {
-        self.inner.read().unwrap().save()
+        self.read().save()
     }
 
     pub(crate) fn set_dirty(&self, dirty: bool) {
-        self.inner.write().unwrap().dirty = dirty
+        self.write().dirty = dirty
     }
 
     pub(crate) fn theme(&self) -> ThemePreference {
-        self.inner.read().unwrap().theme
+        self.read().theme
     }
 
     pub(crate) fn set_theme(&self, theme: ThemePreference) {
-        let mut settings = self.inner.write().unwrap();
+        let mut settings = self.write();
         settings.theme = theme;
         settings.dirty = true;
     }
 
     pub(crate) fn init(&self, ctx: &egui::Context) {
-        self.inner.read().unwrap().init(ctx);
+        self.read().init(ctx);
     }
 }
 
