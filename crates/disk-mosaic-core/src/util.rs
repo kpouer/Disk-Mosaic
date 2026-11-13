@@ -11,25 +11,22 @@ pub(crate) enum MyError {
     ReceiverDropped,
 }
 
-/// Return the on-disk size of a file and ignore sparse files (return 0 for them).
+/// Return the space a file actually occupies on disk.
+///
+/// On Unix this is the allocated size, so sparse files (holes) and compressed files
+/// (APFS, ZFS, btrfs) are reported by what they really use, not by their logical length.
+/// On other targets it falls back to the logical file size.
 pub(crate) fn get_file_size(metadata: &Metadata) -> u64 {
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
         // `blocks()` is a cross-Unix accessor; it returns 512-byte block counts.
-        let physical = metadata.blocks().saturating_mul(512);
-        let logical = metadata.len();
-        // If the physical size is smaller than the logical size, and we're on a filesystem
-        // that represents holes (sparse), ignore this file by returning 0.
-        if physical < logical {
-            return 0;
-        }
-        physical
+        metadata.blocks().saturating_mul(512)
     }
     #[cfg(not(unix))]
     {
-        // On non-Unix targets, fall back to logical file size.
-        // Detecting sparse files portably requires platform-specific APIs which we avoid here.
+        // Querying the allocated size on non-Unix targets requires platform-specific APIs
+        // which we avoid here.
         metadata.len()
     }
 }
