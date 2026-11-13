@@ -83,7 +83,6 @@ lto = true
 name = "DiskMosaic"
 identifier = "com.kpouer.diskmosaic"
 icon = ["packaging/DiskMosaic.app/Contents/Resources/AppIcon.icns"]
-version = "0.1.4"
 copyright = "Copyright (c) 2025-2026 Matthieu Casanova"
 category = "Utility"
 short_description = "Disk Mosaic is a disk utility helping you to identify biggest folders"
