@@ -1,14 +1,14 @@
-use crate::menu::MenuAction;
 use crate::app_state::analyzer::{Analyzer, AnalyzerUpdate};
 use crate::app_state::result_view::ResultView;
 use crate::app_state::select_target::SelectTarget;
 use crate::disk_analyzer::AppState::{Error, SelectDisk};
+use crate::menu::MenuAction;
 use crate::settings::Settings;
+use crate::settings_panel::{SettingsContext, SettingsDialog};
 use eframe::Frame;
 use egui::{Context, Ui};
 use log::{error, info};
 use std::path::PathBuf;
-use crate::settings_panel::{SettingsContext, SettingsDialog};
 
 #[derive(Debug)]
 enum AppState {
@@ -129,8 +129,10 @@ impl eframe::App for DiskAnalyzerApp {
 
         SettingsDialog::new(&mut self.settings_context, &self.settings).show_if_open(ui);
 
-        if ui.ctx().input(|i| i.viewport().close_requested()) {
-            self.settings.save().expect("Unable to save settings");
+        if ui.ctx().input(|i| i.viewport().close_requested())
+            && let Err(e) = self.settings.save()
+        {
+            error!("Unable to save settings: {e:?}");
         }
     }
 }
