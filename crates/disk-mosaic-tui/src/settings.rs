@@ -14,13 +14,8 @@ impl ScanConfig for Settings {
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
-        if self
-            .ignored_path
+        self.ignored_path
             .iter()
             .any(|ignored_path| ignored_path == path)
-        {
-            return true;
-        }
-        false
     }
 }
