@@ -31,126 +31,57 @@ fn is_excluded(path: &Path) -> bool {
     path.starts_with("/proc")
 }
 
-#[derive(Debug)]
-pub struct DirectoryScanner<'a, T>
-where
-    T: ScanConfig,
-{
-    path: PathBuf,
-    stopper: &'a Arc<AtomicBool>,
-    sender: Sender<Message>,
-    settings: &'a T,
-}
-
-impl<'a, T> DirectoryScanner<'a, T>
-where
-    T: ScanConfig,
-{
-    const fn new(
-        path: PathBuf,
-        stopper: &'a Arc<AtomicBool>,
-        sender: Sender<Message>,
-        settings: &'a T,
-    ) -> Self {
-        Self {
-            path,
-            stopper,
-            sender,
-            settings,
-        }
+pub fn scan_directory_channel<T: ScanConfig>(
+    path: &Path,
+    sender: &Sender<Message>,
+    stopper: &Arc<AtomicBool>,
+    settings: T,
+) {
+    if let Err(e) = sender.send(Message::DirectoryScanStart(
+        path.to_string_lossy().to_string(),
+    )) {
+        warn!("Receiver dropped {e}");
+        return;
     }
-
-    fn run(self) -> Data {
-        let Self {
-            path,
-            stopper,
-            sender,
-            settings,
-        } = self;
-
-        let mut data = Data::new_directory(&path);
-
-        match Scanner::new(stopper, &sender, settings).scan_directory_recursive(&path) {
-            Ok(children) => {
-                data.set_nodes(children);
-            }
-            Err(e) => {
-                warn!("Error scanning directory {path:?}: {e}");
-            }
+    let scanner = Scanner::new(stopper, sender, &settings);
+    let mut scan_result = ScanResult::default();
+    for entry in Scanner::<T>::entry_iterator(path).into_iter().flatten() {
+        if stopper.load(Ordering::Relaxed) {
+            info!("Stop requested");
+            break;
         }
-        data
-    }
-
-    pub fn scan_directory_channel(
-        path: &Path,
-        sender: &Sender<Message>,
-        stopper: &Arc<AtomicBool>,
-        settings: T,
-    ) {
-        if let Err(e) = sender.send(Message::DirectoryScanStart(
-            path.to_string_lossy().to_string(),
-        )) {
-            warn!("Receiver dropped {e}");
-            return;
-        }
-        let mut scan_result = ScanResult::default();
-        match path.read_dir() {
-            Ok(iter) => {
-                for dir_entry in iter.flatten() {
-                    if stopper.load(Ordering::Relaxed) {
-                        info!("Stop requested");
-                        break;
-                    }
-                    let path = dir_entry.path();
-                    if is_excluded(&path) {
-                        continue;
-                    }
-                    match dir_entry.file_type() {
-                        Ok(file_type) => {
-                            if file_type.is_dir() {
-                                if settings.is_path_ignored(&path) {
-                                    info!("Ignoring path: {path:?}");
-                                    continue;
-                                }
-                                let data =
-                                    DirectoryScanner::new(path, stopper, sender.clone(), &settings)
-                                        .run();
-                                if data.size > 0 {
-                                    Self::send_message(sender, Message::Data(data));
-                                }
-                            } else if file_type.is_file() {
-                                let size = dir_entry
-                                    .metadata()
-                                    .map_or(0, |metadata| util::get_file_size(&metadata));
-                                scan_result.add_size(size);
-                                Self::send_message(
-                                    sender,
-                                    Message::Data(Data::new_file(&path, size)),
-                                );
-                            }
-                        }
-                        Err(e) => debug!("Error reading file {path:?}: {e}"),
-                    }
+        match scanner.classify(&entry) {
+            Some(ScannedEntry::Dir(p)) => {
+                if let Some(data) = scanner.scan_dir(&p)
+                    && data.size > 0
+                {
+                    send_message(sender, Message::Data(data));
                 }
             }
-            Err(e) => match e.kind() {
-                ErrorKind::PermissionDenied => {}
-                _ => debug!("Error reading directory: {path:?}, {e:?}"),
-            },
+            Some(ScannedEntry::File(path, size)) => {
+                scan_result.add_size(size);
+                send_message(sender, Message::Data(Data::new_file(&path, size)));
+            }
+            None => {}
         }
-        Self::send_message(sender, Message::DirectoryScanDone(scan_result));
     }
+    send_message(sender, Message::DirectoryScanDone(scan_result));
+}
 
-    fn send_message(sender: &Sender<Message>, message: Message) -> bool {
-        if let Err(e) = sender.send(message) {
-            warn!("Receiver dropped {e}");
-            return false;
-        }
-        true
+fn send_message(sender: &Sender<Message>, message: Message) -> bool {
+    if let Err(e) = sender.send(message) {
+        warn!("Receiver dropped {e}");
+        return false;
     }
+    true
 }
 
 type ChildrenAccumulator = (Vec<Data>, CountAndSize);
+
+pub(crate) enum ScannedEntry {
+    Dir(PathBuf),
+    File(PathBuf, u64),
+}
 
 #[derive(Debug)]
 struct Scanner<'a, T>
@@ -175,6 +106,36 @@ where
             stopper,
             sender,
             settings,
+        }
+    }
+
+    fn is_path_ignored(&self, path: &Path) -> bool {
+        self.settings.is_path_ignored(path) && !is_excluded(path)
+    }
+
+    fn classify(&self, entry: &DirEntry) -> Option<ScannedEntry> {
+        let path = entry.path();
+        if self.is_path_ignored(&path) {
+            info!("Ignoring path: {path:?}");
+            return None;
+        }
+
+        let file_type = entry
+            .file_type()
+            .inspect_err(|e| warn!("Error getting file type: {e}"))
+            .ok()?;
+
+        if file_type.is_dir() {
+            Some(ScannedEntry::Dir(path))
+        } else if file_type.is_file() {
+            let metadata = entry
+                .metadata()
+                .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
+                .ok()?;
+            let size = util::get_file_size(&metadata);
+            Some(ScannedEntry::File(path, size))
+        } else {
+            None
         }
     }
 
@@ -257,51 +218,26 @@ where
             return (items, count_and_size);
         }
 
-        let entry_path = entry.path();
-
-        match entry.file_type() {
-            Ok(f) => {
-                if f.is_dir() {
-                    if let Some(dir_data) = self.process_dir(&entry_path) {
-                        items.push(dir_data);
-                    }
-                } else if f.is_file() {
-                    let metadata = match entry.metadata() {
-                        Ok(m) => m,
-                        Err(e) => {
-                            debug!("Failed to get metadata for {entry_path:?}: {e}");
-                            return (items, count_and_size);
-                        }
-                    };
-                    let file_size = util::get_file_size(&metadata);
-                    if file_size < big_file_threshold {
-                        count_and_size.push(file_size);
-                    } else {
-                        items.push(Data::new_file(&entry_path, file_size));
-                    }
-                }
+        match self.classify(&entry) {
+            Some(ScannedEntry::Dir(path)) => items.extend(self.scan_dir(&path)),
+            Some(ScannedEntry::File(_, file_size)) if file_size < big_file_threshold => {
+                count_and_size.push(file_size)
             }
-            Err(e) => {
-                debug!("Failed to get files for {entry_path:?}: {e}");
-                return (items, count_and_size);
+            Some(ScannedEntry::File(path, file_size)) => {
+                items.push(Data::new_file(&path, file_size))
             }
+            None => {}
         }
 
         (items, count_and_size)
     }
 
-    fn process_dir(&self, entry_path: &PathBuf) -> Option<Data> {
-        {
-            if self.settings.is_path_ignored(entry_path) {
-                info!("Ignoring path: {entry_path:?}");
-                return None;
-            }
-        }
+    fn scan_dir(&self, entry_path: &PathBuf) -> Option<Data> {
         match self.scan_directory_recursive(entry_path) {
-            Ok(grandchildren) => {
-                let mut dir_data = Data::new_directory(entry_path);
-                dir_data.set_nodes(grandchildren);
-                Some(dir_data)
+            Ok(children) => {
+                let mut data = Data::new_directory(entry_path);
+                data.set_nodes(children);
+                Some(data)
             }
             Err(e) => {
                 warn!("Error recursively scanning directory {entry_path:?}: {e}");

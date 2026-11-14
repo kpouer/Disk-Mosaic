@@ -4,7 +4,7 @@ use crate::settings::Settings;
 use crate::treemap_panel::TreeMapPanel;
 use disk_mosaic_core::analysis_result::AnalysisResult;
 use disk_mosaic_core::data::Data;
-use disk_mosaic_core::directory_scanner::DirectoryScanner;
+use disk_mosaic_core::directory_scanner::scan_directory_channel;
 use disk_mosaic_core::model::message::Message;
 use disk_mosaic_core::model::scan_result::ScanResult;
 use egui::{Label, Ui};
@@ -49,7 +49,7 @@ impl Analyzer {
         let settings_copy = settings.clone();
         let handle = thread::spawn(move || {
             let start = std::time::Instant::now();
-            DirectoryScanner::scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
+            scan_directory_channel(&root_copy, &tx, &stopper_copy, settings_copy);
             info!("Done in {}ms", start.elapsed().as_millis());
         });
         let root_data = Data::new_directory(&root);

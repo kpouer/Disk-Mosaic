@@ -8,7 +8,7 @@ use crossterm::{
 };
 use disk_mosaic_core::analysis_result::AnalysisResult;
 use disk_mosaic_core::data::{Data, Kind};
-use disk_mosaic_core::directory_scanner::DirectoryScanner;
+use disk_mosaic_core::directory_scanner::scan_directory_channel;
 use disk_mosaic_core::model::message::Message;
 use humansize::DECIMAL;
 use ratatui::{
@@ -93,7 +93,7 @@ impl TextUi {
 
         let settings = self.settings.clone();
         std::thread::spawn(move || {
-            DirectoryScanner::scan_directory_channel(&path_clone, &tx, &stopper_clone, settings);
+            scan_directory_channel(&path_clone, &tx, &stopper_clone, settings);
         });
 
         let mut last_tick = Instant::now();
