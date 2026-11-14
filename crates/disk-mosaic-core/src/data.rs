@@ -2,7 +2,7 @@ use crate::color;
 use crate::color::Color;
 use crate::directory_scanner::CountAndSize;
 use crate::util::PathBufToString;
-use log::{error, warn};
+use log::error;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use treemap::{Mappable, Rect};
@@ -58,20 +58,13 @@ impl Data {
             name: "Remaining".to_string(),
             kind: Kind::SmallFiles(count_and_size.count),
             size: count_and_size.size,
-            color: Data::next_color(),
+            color: Self::next_color(),
             ..Default::default()
         }
     }
 
     pub(crate) fn next_color() -> Color {
-        let idx = INDEX
-            .try_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
-                Some((v + 1) % color::ACCENT_COLORS.len())
-            })
-            .unwrap_or_else(|e| {
-                warn!("AtomicUsize error: {e}");
-                color::ACCENT_COLORS.len()
-            });
+        let idx = INDEX.fetch_add(1, Ordering::Relaxed) % color::ACCENT_COLORS.len();
         color::ACCENT_COLORS[idx]
     }
 
