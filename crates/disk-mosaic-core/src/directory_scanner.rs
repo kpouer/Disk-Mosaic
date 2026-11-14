@@ -5,14 +5,17 @@ use crate::util;
 use crate::util::{MyError, PathBufToString};
 use log::{debug, info, warn};
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::fs::{DirEntry, ReadDir};
 use std::io::ErrorKind;
 use std::iter::Flatten;
 use std::ops::Add;
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 type DirectoryEntryIterator = Flatten<ReadDir>;
 
@@ -43,7 +46,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
         warn!("Receiver dropped {e}");
         return;
     }
-    let scanner = Scanner::new(stopper, sender, &settings);
+    let mut scanner = Scanner::new(stopper, sender, &settings);
     let mut scan_result = ScanResult::default();
     for entry in Scanner::<T>::entry_iterator(path).into_iter().flatten() {
         if stopper.load(Ordering::Relaxed) {
@@ -91,21 +94,21 @@ where
     stopper: &'a Arc<AtomicBool>,
     sender: &'a Sender<Message>,
     settings: &'a T,
+    #[cfg(unix)]
+    seen_inodes: Mutex<HashSet<u64>>,
 }
 
 impl<'a, T> Scanner<'a, T>
 where
     T: ScanConfig,
 {
-    const fn new(
-        stopper: &'a Arc<AtomicBool>,
-        sender: &'a Sender<Message>,
-        settings: &'a T,
-    ) -> Self {
+    fn new(stopper: &'a Arc<AtomicBool>, sender: &'a Sender<Message>, settings: &'a T) -> Self {
         Self {
             stopper,
             sender,
             settings,
+            #[cfg(unix)]
+            seen_inodes: Mutex::new(HashSet::new()),
         }
     }
 
@@ -132,6 +135,14 @@ where
                 .metadata()
                 .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
                 .ok()?;
+            #[cfg(unix)]
+            {
+                let ino = metadata.ino();
+                if !self.seen_inodes.lock().unwrap().insert(ino) {
+                    // already seen
+                    return None;
+                }
+            }
             let size = util::get_file_size(&path, &metadata);
             Some(ScannedEntry::File(path, size))
         } else {
