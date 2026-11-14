@@ -110,7 +110,7 @@ where
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
-        self.settings.is_path_ignored(path) && !is_excluded(path)
+        self.settings.is_path_ignored(path) || is_excluded(path)
     }
 
     fn classify(&self, entry: &DirEntry) -> Option<ScannedEntry> {
