@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
 
-type DirectoryEntryIterator = std::iter::Filter<Flatten<ReadDir>, fn(&DirEntry) -> bool>;
+type DirectoryEntryIterator = Flatten<ReadDir>;
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 fn is_excluded(_path: &Path) -> bool {
@@ -177,11 +177,8 @@ where
 
     fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
         match path.read_dir() {
-            Ok(iter) => {
-                let iter: DirectoryEntryIterator =
-                    iter.flatten().filter(|p| !is_excluded(&p.path()));
-                Some(iter)
-            }
+            // Excluded paths are handled in `classify` via `is_path_ignored`.
+            Ok(iter) => Some(iter.flatten()),
             Err(e) => {
                 if e.kind() != ErrorKind::PermissionDenied {
                     debug!("Error reading directory: {path:?}, {e:?}");
