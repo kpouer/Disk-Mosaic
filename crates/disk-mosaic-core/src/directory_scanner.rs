@@ -132,7 +132,7 @@ where
                 .metadata()
                 .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
                 .ok()?;
-            let size = util::get_file_size(&metadata);
+            let size = util::get_file_size(&path, &metadata);
             Some(ScannedEntry::File(path, size))
         } else {
             None
