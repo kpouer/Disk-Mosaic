@@ -157,10 +157,10 @@ where
             Some(scanned_children) => {
                 let scan_result = scanned_children
                     .par_iter()
-                    .filter(|data| matches!(data.kind, Kind::File))
-                    .map(|data| ScanResult {
-                        file_count: 1,
-                        size: data.size,
+                    .filter_map(|data| match data.kind {
+                        Kind::Dir(_) => None,
+                        Kind::File => Some(ScanResult::new(1, data.size)),
+                        Kind::SmallFiles(count) => Some(ScanResult::new(count, data.size)),
                     })
                     .reduce(ScanResult::default, |left, right| left + right);
                 if scan_result.file_count != 0
