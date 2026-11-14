@@ -232,7 +232,7 @@ where
         (items, count_and_size)
     }
 
-    fn scan_dir(&self, entry_path: &PathBuf) -> Option<Data> {
+    fn scan_dir(&self, entry_path: &Path) -> Option<Data> {
         match self.scan_directory_recursive(entry_path) {
             Ok(children) => {
                 let mut data = Data::new_directory(entry_path);
