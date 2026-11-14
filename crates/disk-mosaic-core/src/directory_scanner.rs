@@ -114,20 +114,20 @@ where
     }
 
     fn classify(&self, entry: &DirEntry) -> Option<ScannedEntry> {
-        let path = entry.path();
-        if self.is_path_ignored(&path) {
-            info!("Ignoring path: {path:?}");
-            return None;
-        }
-
         let file_type = entry
             .file_type()
             .inspect_err(|e| warn!("Error getting file type: {e}"))
             .ok()?;
 
         if file_type.is_dir() {
+            let path = entry.path();
+            if self.is_path_ignored(&path) {
+                info!("Ignoring path: {path:?}");
+                return None;
+            }
             Some(ScannedEntry::Dir(path))
         } else if file_type.is_file() {
+            let path = entry.path();
             let metadata = entry
                 .metadata()
                 .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
