@@ -39,16 +39,12 @@ pub trait PathBufToString {
 impl PathBufToString for Path {
     fn name(&self) -> String {
         self.file_name()
-            .and_then(|f| f.to_str())
-            .map(|f| f.nfc().collect::<String>())
+            .map(|f| f.to_string_lossy().nfc().collect::<String>())
             .unwrap_or_default()
     }
 
     fn absolute_path(&self) -> String {
-        self.as_os_str()
-            .to_str()
-            .map(|f| f.nfc().collect::<String>())
-            .unwrap_or_default()
+        self.as_os_str().to_string_lossy().nfc().collect::<String>()
     }
 }
 
@@ -67,6 +63,16 @@ mod tests {
     fn test_absolute_path() {
         let path = PathBuf::from("/home/user/test.txt");
         assert_eq!(path.absolute_path(), "/home/user/test.txt");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_non_utf8_names_are_not_empty() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+        let path = PathBuf::from(OsStr::from_bytes(b"/home/user/bad\xffname.txt"));
+        assert_eq!(path.name(), "bad\u{FFFD}name.txt");
+        assert_eq!(path.absolute_path(), "/home/user/bad\u{FFFD}name.txt");
     }
 
     #[test]
