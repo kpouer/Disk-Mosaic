@@ -5,8 +5,6 @@ use unicode_normalization::UnicodeNormalization;
 
 #[derive(Error, Debug)]
 pub(crate) enum MyError {
-    #[error("IO Error")]
-    IOError(#[from] std::io::Error),
     #[error("Receiver Dropped")]
     ReceiverDropped,
 }
