@@ -61,13 +61,11 @@ pub fn scan_directory_channel<T: ScanConfig>(
                     send_message(sender, Message::Data(data));
                 }
             }
-            Some(ScannedEntry::File(path, size)) => {
-                if size > 0 {
-                    scan_result.add_size(size);
-                    send_message(sender, Message::File(path.name(), size));
-                }
+            Some(ScannedEntry::File(path, size)) if size > 0 => {
+                scan_result.add_size(size);
+                send_message(sender, Message::File(path.name(), size));
             }
-            None => {}
+            Some(ScannedEntry::File(_, _)) | None => {}
         }
     }
     send_message(sender, Message::DirectoryScanDone(scan_result));
