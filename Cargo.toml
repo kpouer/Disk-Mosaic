@@ -8,7 +8,8 @@ description = "Disk Mosaic is a disk utility helping you to identify biggest fol
 license.workspace = true
 readme.workspace = true
 keywords.workspace = true
-categories = ["filesystem", "visualization"]
+repository = "https://github.com/kpouer/Disk-Mosaic"
+categories = ["filesystem", "visualization", "gui", "command-line-utilities"]
 exclude = [
     ".cargo-husky/",
     ".github/",
@@ -21,9 +22,7 @@ version = "0.2.1"
 authors = ["Matthieu Casanova"]
 edition = "2024"
 license = "MIT"
-keywords = ["desktop", "file", "folder", "disk"]
-homepage = "https://github.com/kpouer/Disk-Mosaic"
-repository = "https://github.com/kpouer/Disk-Mosaic"
+keywords = ["desktop", "file", "folder", "disk", "treemap"]
 readme = "README.md"
 
 [[bin]]
