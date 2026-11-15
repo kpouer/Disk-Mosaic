@@ -220,14 +220,14 @@ where
     where
         IT: Iterator<Item = DirEntry> + ParallelBridge + Send,
     {
-        let (mut data, count_and_size) = entries
+        let (mut data, small_files) = entries
             .par_bridge()
             .fold(ChildrenAccumulator::default, |accumulator, entry| {
                 self.fold_children(big_file_threshold, accumulator, entry)
             })
             .reduce(ChildrenAccumulator::default, merge_children_accumulators);
-        if count_and_size.size > 0 {
-            data.push(Data::remaining(count_and_size));
+        if small_files.size > 0 {
+            data.push(Data::remaining(small_files));
         }
 
         data
@@ -236,17 +236,17 @@ where
     fn fold_children(
         &self,
         big_file_threshold: u64,
-        (mut items, mut count_and_size): ChildrenAccumulator,
+        (mut items, mut small_files): ChildrenAccumulator,
         entry: DirEntry,
     ) -> ChildrenAccumulator {
         if self.stopper.load(Ordering::Relaxed) {
-            return (items, count_and_size);
+            return (items, small_files);
         }
 
         match self.classify(&entry) {
             Some(ScannedEntry::Dir(path)) => items.extend(self.scan_dir(&path)),
             Some(ScannedEntry::File(_, file_size)) if file_size < big_file_threshold => {
-                count_and_size.push(file_size)
+                small_files.push(file_size)
             }
             Some(ScannedEntry::File(path, file_size)) => {
                 items.push(Data::new_file(path.name(), file_size))
@@ -254,7 +254,7 @@ where
             None => {}
         }
 
-        (items, count_and_size)
+        (items, small_files)
     }
 
     fn scan_dir(&self, entry_path: &Path) -> Option<Data> {
