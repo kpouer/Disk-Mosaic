@@ -90,6 +90,7 @@ pub(crate) enum ScannedEntry {
 
 type Dev = u64;
 type Ino = u64;
+type FileId = (Dev, Ino);
 
 #[derive(Debug)]
 struct Scanner<'a, T>
@@ -100,7 +101,7 @@ where
     sender: &'a Sender<Message>,
     settings: &'a T,
     #[cfg(unix)]
-    seen_inodes: Mutex<HashSet<(Dev, Ino)>>,
+    seen_inodes: Mutex<HashSet<FileId>>,
 }
 
 impl<'a, T> Scanner<'a, T>
