@@ -13,7 +13,7 @@ use std::ops::Add;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
@@ -47,28 +47,40 @@ pub fn scan_directory_channel<T: ScanConfig>(
         return;
     }
     let scanner = Scanner::new(stopper, sender, &settings);
-    let mut scan_result = ScanResult::default();
-    for entry in Scanner::<T>::entry_iterator(path).into_iter().flatten() {
-        if stopper.load(Ordering::Relaxed) {
-            info!("Stop requested");
-            break;
-        }
-        match scanner.classify(&entry) {
-            Some(ScannedEntry::Dir(p)) => {
-                if let Some(data) = scanner.scan_dir(&p)
-                    && data.size > 0
-                {
-                    send_message(sender, Message::Data(data));
+    let file_count = AtomicU64::new(0);
+    let total_size = AtomicU64::new(0);
+    Scanner::<T>::entry_iterator(path)
+        .into_iter()
+        .flatten()
+        .par_bridge()
+        .for_each(|entry| {
+            if stopper.load(Ordering::Relaxed) {
+                debug!("Stop requested");
+                return;
+            }
+            match scanner.classify(&entry) {
+                Some(ScannedEntry::Dir(p)) => {
+                    if let Some(data) = scanner.scan_dir(&p)
+                        && data.size > 0
+                    {
+                        send_message(sender, Message::Data(data));
+                    }
                 }
+                Some(ScannedEntry::File(path, size)) if size > 0 => {
+                    file_count.fetch_add(1, Ordering::Relaxed);
+                    total_size.fetch_add(size, Ordering::Relaxed);
+                    send_message(sender, Message::File(path.name(), size));
+                }
+                Some(ScannedEntry::File(_, _)) | None => {}
             }
-            Some(ScannedEntry::File(path, size)) if size > 0 => {
-                scan_result.add_size(size);
-                send_message(sender, Message::File(path.name(), size));
-            }
-            Some(ScannedEntry::File(_, _)) | None => {}
-        }
-    }
-    send_message(sender, Message::DirectoryScanDone(scan_result));
+        });
+    send_message(
+        sender,
+        Message::DirectoryScanDone(ScanResult::new(
+            file_count.load(Ordering::Relaxed),
+            total_size.load(Ordering::Relaxed),
+        )),
+    );
 }
 
 fn send_message(sender: &Sender<Message>, message: Message) -> bool {

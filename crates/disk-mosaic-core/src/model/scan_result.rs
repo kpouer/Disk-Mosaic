@@ -10,11 +10,6 @@ impl ScanResult {
     pub(crate) const fn new(file_count: u64, size: u64) -> Self {
         Self { file_count, size }
     }
-
-    pub(crate) const fn add_size(&mut self, size: u64) {
-        self.file_count += 1;
-        self.size += size;
-    }
 }
 
 impl Add for ScanResult {
