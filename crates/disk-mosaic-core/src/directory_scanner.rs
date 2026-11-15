@@ -49,6 +49,9 @@ pub fn scan_directory_channel<T: ScanConfig>(
     let scanner = Scanner::new(stopper, sender, &settings);
     let file_count = AtomicU64::new(0);
     let total_size = AtomicU64::new(0);
+    let small_files_count = AtomicU64::new(0);
+    let small_files_size = AtomicU64::new(0);
+    let big_file_threshold = settings.big_file_threshold();
     Scanner::<T>::entry_iterator(path)
         .into_iter()
         .flatten()
@@ -66,6 +69,10 @@ pub fn scan_directory_channel<T: ScanConfig>(
                         send_message(sender, Message::Data(data));
                     }
                 }
+                Some(ScannedEntry::File(_, size)) if size < big_file_threshold => {
+                    small_files_count.fetch_add(1, Ordering::Relaxed);
+                    small_files_size.fetch_add(size, Ordering::Relaxed);
+                }
                 Some(ScannedEntry::File(path, size)) if size > 0 => {
                     file_count.fetch_add(1, Ordering::Relaxed);
                     total_size.fetch_add(size, Ordering::Relaxed);
@@ -74,11 +81,22 @@ pub fn scan_directory_channel<T: ScanConfig>(
                 Some(ScannedEntry::File(_, _)) | None => {}
             }
         });
+    let small_count = small_files_count.load(Ordering::Relaxed);
+    let small_size = small_files_size.load(Ordering::Relaxed);
+    if small_size > 0 {
+        send_message(
+            sender,
+            Message::Data(Data::remaining(CountAndSize {
+                count: small_count,
+                size: small_size,
+            })),
+        );
+    }
     send_message(
         sender,
         Message::DirectoryScanDone(ScanResult::new(
-            file_count.load(Ordering::Relaxed),
-            total_size.load(Ordering::Relaxed),
+            file_count.load(Ordering::Relaxed) + small_count,
+            total_size.load(Ordering::Relaxed) + small_size,
         )),
     );
 }
