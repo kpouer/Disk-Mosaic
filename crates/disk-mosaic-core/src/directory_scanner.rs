@@ -46,7 +46,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
         warn!("Receiver dropped {e}");
         return;
     }
-    let mut scanner = Scanner::new(stopper, sender, &settings);
+    let scanner = Scanner::new(stopper, sender, &settings);
     let mut scan_result = ScanResult::default();
     for entry in Scanner::<T>::entry_iterator(path).into_iter().flatten() {
         if stopper.load(Ordering::Relaxed) {
@@ -86,6 +86,9 @@ pub(crate) enum ScannedEntry {
     File(PathBuf, u64),
 }
 
+type dev = u64;
+type ino = u64;
+
 #[derive(Debug)]
 struct Scanner<'a, T>
 where
@@ -95,7 +98,7 @@ where
     sender: &'a Sender<Message>,
     settings: &'a T,
     #[cfg(unix)]
-    seen_inodes: Mutex<HashSet<u64>>,
+    seen_inodes: Mutex<HashSet<(dev, ino)>>,
 }
 
 impl<'a, T> Scanner<'a, T>
@@ -137,8 +140,9 @@ where
                 .ok()?;
             #[cfg(unix)]
             {
+                let dev = metadata.dev();
                 let ino = metadata.ino();
-                if !self.seen_inodes.lock().unwrap().insert(ino) {
+                if !self.seen_inodes.lock().unwrap().insert((dev, ino)) {
                     // already seen
                     return None;
                 }
