@@ -138,6 +138,13 @@ impl TextUi {
                             .push(data);
                     }
                 }
+                Message::File(name, size) => {
+                    self.analysis_result
+                        .data_stack
+                        .last_mut()
+                        .unwrap()
+                        .push(Data::new_file(name, size));
+                }
                 Message::DirectoryScanStart(d) => {
                     self.current_scanning_path = Some(d);
                     self.scanned_directories += 1;
