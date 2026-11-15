@@ -62,8 +62,10 @@ pub fn scan_directory_channel<T: ScanConfig>(
                 }
             }
             Some(ScannedEntry::File(path, size)) => {
-                scan_result.add_size(size);
-                send_message(sender, Message::Data(Data::new_file(&path, size)));
+                if size > 0 {
+                    scan_result.add_size(size);
+                    send_message(sender, Message::File(path.name(), size));
+                }
             }
             None => {}
         }
@@ -236,7 +238,7 @@ where
                 count_and_size.push(file_size)
             }
             Some(ScannedEntry::File(path, file_size)) => {
-                items.push(Data::new_file(&path, file_size))
+                items.push(Data::new_file(path.name(), file_size))
             }
             None => {}
         }

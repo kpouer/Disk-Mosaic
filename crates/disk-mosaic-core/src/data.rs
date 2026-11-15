@@ -43,9 +43,9 @@ impl Data {
         }
     }
 
-    pub(crate) fn new_file(path: &Path, size: u64) -> Self {
+    pub fn new_file(name: String, size: u64) -> Self {
         Self {
-            name: path.name(),
+            name,
             kind: Kind::File,
             size,
             color: Self::next_color(),

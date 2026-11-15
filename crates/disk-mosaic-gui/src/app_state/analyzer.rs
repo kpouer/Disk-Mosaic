@@ -105,6 +105,10 @@ impl Analyzer {
                         }
                     }
                 }
+                Message::File(name, size) => match self.analysis_result.data_stack.last_mut() {
+                    Some(current_data) => current_data.push(Data::new_file(name, size)),
+                    None => log::error!("Data stack is empty when receiving data"),
+                },
             }
             count -= 1;
             if count == 0 {
