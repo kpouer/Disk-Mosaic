@@ -43,7 +43,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
     if let Err(e) = sender.send(Message::DirectoryScanStart(
         path.to_string_lossy().to_string(),
     )) {
-        warn!("Receiver dropped {e}");
+        debug!("Receiver dropped {e}");
         return;
     }
     let scanner = Scanner::new(stopper, sender, &settings);
@@ -103,7 +103,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
 
 fn send_message(sender: &Sender<Message>, message: Message) -> bool {
     if let Err(e) = sender.send(message) {
-        warn!("Receiver dropped {e}");
+        debug!("Receiver dropped {e}");
         return false;
     }
     true
