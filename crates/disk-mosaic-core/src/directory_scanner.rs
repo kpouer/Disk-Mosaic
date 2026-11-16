@@ -196,28 +196,23 @@ where
             debug!("Received dropped {e}");
             return None;
         }
-        let big_file_threshold = self.settings.big_file_threshold();
-        let scanned_children = match Self::entry_iterator(path)
-            .map(|entries| self.collect_children(big_file_threshold, entries))
+        let scanned_children = Self::entry_iterator(path)
+            .map(|entries| self.collect_children(entries))
+            .unwrap_or_default();
+
+        let scan_result = scanned_children
+            .par_iter()
+            .filter_map(|data| match data.kind {
+                Kind::Dir(_) => None,
+                Kind::File => Some(ScanResult::new(1, data.size)),
+                Kind::SmallFiles(count) => Some(ScanResult::new(count, data.size)),
+            })
+            .reduce(ScanResult::default, |left, right| left + right);
+        if scan_result.file_count != 0
+            && let Err(e) = self.sender.send(Message::DirectoryScanDone(scan_result))
         {
-            Some(scanned_children) => {
-                let scan_result = scanned_children
-                    .par_iter()
-                    .filter_map(|data| match data.kind {
-                        Kind::Dir(_) => None,
-                        Kind::File => Some(ScanResult::new(1, data.size)),
-                        Kind::SmallFiles(count) => Some(ScanResult::new(count, data.size)),
-                    })
-                    .reduce(ScanResult::default, |left, right| left + right);
-                if scan_result.file_count != 0
-                    && let Err(e) = self.sender.send(Message::DirectoryScanDone(scan_result))
-                {
-                    debug!("Received dropped {e}");
-                }
-                scanned_children
-            }
-            None => Vec::new(),
-        };
+            debug!("Received dropped {e}");
+        }
         let mut data = Data::new_directory(path);
         data.set_nodes(scanned_children);
         Some(data)
@@ -236,10 +231,12 @@ where
         }
     }
 
-    fn collect_children<IT>(&self, big_file_threshold: u64, entries: IT) -> Vec<Data>
+    fn collect_children<IT>(&self, entries: IT) -> Vec<Data>
     where
         IT: Iterator<Item = DirEntry> + ParallelBridge + Send,
     {
+        let big_file_threshold = self.settings.big_file_threshold();
+
         let (mut data, small_files) = entries
             .par_bridge()
             .fold(ChildrenAccumulator::default, |accumulator, entry| {
