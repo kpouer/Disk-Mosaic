@@ -1,13 +1,6 @@
 use std::fs::Metadata;
 use std::path::Path;
-use thiserror::Error;
 use unicode_normalization::UnicodeNormalization;
-
-#[derive(Error, Debug)]
-pub(crate) enum MyError {
-    #[error("Receiver Dropped")]
-    ReceiverDropped,
-}
 
 /// Return the space a file actually occupies on disk.
 ///

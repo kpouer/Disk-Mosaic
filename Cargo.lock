@@ -1163,7 +1163,6 @@ dependencies = [
  "ecolor",
  "log",
  "rayon",
- "thiserror 2.0.21",
  "treemap",
  "unicode-normalization",
  "windows-sys 0.61.2",

@@ -2,7 +2,7 @@ use crate::data::{Data, Kind};
 use crate::model::message::Message;
 use crate::model::scan_result::ScanResult;
 use crate::util;
-use crate::util::{MyError, PathBufToString};
+use crate::util::PathBufToString;
 use log::{debug, info, warn};
 use rayon::prelude::*;
 use std::collections::HashSet;
@@ -63,7 +63,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
             }
             match scanner.classify(&entry) {
                 Some(ScannedEntry::Dir(p)) => {
-                    if let Some(data) = scanner.scan_dir(&p)
+                    if let Some(data) = scanner.scan_directory_recursive(&p)
                         && data.size > 0
                     {
                         send_message(sender, Message::Data(data));
@@ -185,16 +185,16 @@ where
         }
     }
 
-    fn scan_directory_recursive(&self, path: &Path) -> Result<Vec<Data>, MyError> {
+    fn scan_directory_recursive(&self, path: &Path) -> Option<Data> {
         if self.stopper.load(Ordering::Relaxed) {
-            return Ok(Vec::new());
+            return None;
         }
         if let Err(e) = self
             .sender
             .send(Message::DirectoryScanStart(path.absolute_path()))
         {
-            warn!("Received dropped {e}");
-            return Err(MyError::ReceiverDropped);
+            debug!("Received dropped {e}");
+            return None;
         }
         let big_file_threshold = self.settings.big_file_threshold();
         let scanned_children = match Self::entry_iterator(path)
@@ -212,13 +212,15 @@ where
                 if scan_result.file_count != 0
                     && let Err(e) = self.sender.send(Message::DirectoryScanDone(scan_result))
                 {
-                    warn!("Received dropped {e}");
+                    debug!("Received dropped {e}");
                 }
                 scanned_children
             }
             None => Vec::new(),
         };
-        Ok(scanned_children)
+        let mut data = Data::new_directory(path);
+        data.set_nodes(scanned_children);
+        Some(data)
     }
 
     fn entry_iterator(path: &Path) -> Option<DirectoryEntryIterator> {
@@ -262,7 +264,7 @@ where
         }
 
         match self.classify(&entry) {
-            Some(ScannedEntry::Dir(path)) => items.extend(self.scan_dir(&path)),
+            Some(ScannedEntry::Dir(path)) => items.extend(self.scan_directory_recursive(&path)),
             Some(ScannedEntry::File(_, file_size)) if file_size < big_file_threshold => {
                 small_files.push(file_size)
             }
@@ -273,20 +275,6 @@ where
         }
 
         (items, small_files)
-    }
-
-    fn scan_dir(&self, entry_path: &Path) -> Option<Data> {
-        match self.scan_directory_recursive(entry_path) {
-            Ok(children) => {
-                let mut data = Data::new_directory(entry_path);
-                data.set_nodes(children);
-                Some(data)
-            }
-            Err(e) => {
-                warn!("Error recursively scanning directory {entry_path:?}: {e}");
-                None
-            }
-        }
     }
 }
 
