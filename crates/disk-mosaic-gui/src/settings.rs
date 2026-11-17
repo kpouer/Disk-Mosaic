@@ -303,3 +303,187 @@ settings_mut_guard!(SettingsColorSchemeMut, color_scheme, ColorScheme);
 settings_mut_guard!(SettingsIgnoredPathMut, ignored_path, Vec<PathBuf>);
 settings_mut_guard!(SettingsBigFileThresholdMut, big_file_threshold, u64);
 settings_mut_guard!(SettingsIgnoreCloudMountsMut, ignore_cloud_mounts, bool);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn inner() -> InnerSettings {
+        InnerSettings {
+            dirty: false,
+            color_scheme: ColorScheme::Egui,
+            theme: ThemePreference::System,
+            ignored_path: Vec::new(),
+            ignore_cloud_mounts: true,
+            big_file_threshold: BIG_FILE_THRESHOLD,
+        }
+    }
+
+    fn settings() -> Settings {
+        Settings {
+            inner: Arc::new(RwLock::new(inner())),
+        }
+    }
+
+    fn dirty(settings: &Settings) -> bool {
+        settings.read().dirty
+    }
+
+    #[test]
+    fn reading_does_not_set_dirty() {
+        let s = settings();
+        let _ = s.color_scheme();
+        let _ = s.theme();
+        let _ = s.big_file_threshold();
+        assert!(!dirty(&s));
+    }
+
+    #[test]
+    fn immutable_deref_of_guard_does_not_set_dirty() {
+        let s = settings();
+        {
+            let guard = s.big_file_threshold_mut();
+            assert_eq!(*guard, BIG_FILE_THRESHOLD);
+        }
+        assert!(!dirty(&s));
+    }
+
+    #[test]
+    fn mutating_through_guard_sets_dirty() {
+        let s = settings();
+        *s.big_file_threshold_mut() = 42;
+        assert_eq!(s.big_file_threshold(), 42);
+        assert!(dirty(&s));
+    }
+
+    #[test]
+    fn reset_big_file_threshold_restores_default_and_marks_dirty() {
+        let s = settings();
+        *s.big_file_threshold_mut() = 1;
+        s.set_dirty(false);
+        s.reset_big_file_threshold();
+        assert_eq!(s.big_file_threshold(), BIG_FILE_THRESHOLD);
+        assert!(dirty(&s));
+    }
+
+    #[test]
+    fn set_theme_updates_and_marks_dirty() {
+        let s = settings();
+        s.set_theme(ThemePreference::Dark);
+        assert_eq!(s.theme(), ThemePreference::Dark);
+        assert!(dirty(&s));
+    }
+
+    #[test]
+    fn color_scheme_mut_updates() {
+        let s = settings();
+        *s.color_scheme_mut() = ColorScheme::Solarized;
+        assert_eq!(s.color_scheme(), ColorScheme::Solarized);
+        assert!(dirty(&s));
+    }
+
+    #[test]
+    fn set_dirty_false_clears_flag() {
+        let s = settings();
+        s.set_theme(ThemePreference::Light);
+        s.set_dirty(false);
+        assert!(!dirty(&s));
+    }
+
+    #[test]
+    fn ignored_path_exact_match() {
+        let s = settings();
+        s.ignored_paths_mut().push(PathBuf::from("/a/b"));
+        assert!(s.is_path_ignored(Path::new("/a/b")));
+        assert!(!s.is_path_ignored(Path::new("/a")));
+        assert!(!s.is_path_ignored(Path::new("/a/b/c")));
+    }
+
+    #[test]
+    fn cloud_mounts_ignored_only_when_enabled() {
+        let Some(home) = home::home_dir() else { return };
+        let dropbox = home.join("Dropbox").join("file");
+        let s = settings();
+        assert!(s.is_path_ignored(&dropbox));
+        *s.ignore_cloud_mounts_mut() = false;
+        assert!(!s.is_path_ignored(&dropbox));
+    }
+
+    #[test]
+    fn common_cloud_path_detection() {
+        let Some(home) = home::home_dir() else { return };
+        for name in ["Dropbox", "OneDrive", "Google Drive", "Box", "MEGA"] {
+            assert!(InnerSettings::is_common_cloud_path(&home.join(name)), "{name}");
+        }
+        assert!(!InnerSettings::is_common_cloud_path(&home.join("Documents")));
+        assert!(!InnerSettings::is_common_cloud_path(&home));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn icloud_path_detected_on_macos() {
+        let Some(home) = home::home_dir() else { return };
+        let p = home.join("Library/Mobile Documents/com~apple~CloudDocs/x");
+        assert!(InnerSettings::is_common_cloud_path(&p));
+        assert!(!InnerSettings::is_common_cloud_path(&home.join("Library/Other")));
+    }
+
+    #[test]
+    fn serde_roundtrip() {
+        let mut i = inner();
+        i.theme = ThemePreference::Dark;
+        i.color_scheme = ColorScheme::Solarized;
+        i.ignored_path.push(PathBuf::from("/z"));
+        i.big_file_threshold = 123;
+        i.dirty = true;
+        let json = serde_json::to_string(&i).unwrap();
+        let back: InnerSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.theme, ThemePreference::Dark);
+        assert_eq!(back.color_scheme, ColorScheme::Solarized);
+        assert_eq!(back.ignored_path, vec![PathBuf::from("/z")]);
+        assert_eq!(back.big_file_threshold, 123);
+        assert!(!back.dirty, "dirty is skipped by serde");
+    }
+
+    #[test]
+    fn missing_ignore_cloud_mounts_defaults_to_true() {
+        let json = r#"{"color_scheme":"Egui","theme":"System","ignored_path":[],"big_file_threshold":10}"#;
+        let i: InnerSettings = serde_json::from_str(json).unwrap();
+        assert!(i.ignore_cloud_mounts);
+    }
+
+    #[test]
+    fn save_without_dirty_is_noop_ok() {
+        assert!(inner().save().is_ok());
+    }
+
+    #[test]
+    fn poisoned_lock_is_recovered() {
+        let s = settings();
+        let s2 = s.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = s2.inner.write().unwrap();
+            panic!("poison");
+        })
+        .join();
+        assert_eq!(s.theme(), ThemePreference::System);
+        s.set_theme(ThemePreference::Dark);
+        assert_eq!(s.theme(), ThemePreference::Dark);
+    }
+
+    #[test]
+    fn theme_preference_converts_to_egui() {
+        assert_eq!(
+            egui::ThemePreference::from(ThemePreference::Dark),
+            egui::ThemePreference::Dark
+        );
+        assert_eq!(
+            egui::ThemePreference::from(ThemePreference::Light),
+            egui::ThemePreference::Light
+        );
+        assert_eq!(
+            egui::ThemePreference::from(ThemePreference::System),
+            egui::ThemePreference::System
+        );
+    }
+}
