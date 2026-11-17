@@ -16,7 +16,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::thread;
 use std::time::Duration;
-use treemap::Mappable;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum AnalyzerUpdate {
@@ -97,12 +96,14 @@ impl Analyzer {
                     self.scanned_directories += 1;
                 }
                 Message::DirectoryScanDone(scan_result) => self.scan_result += scan_result,
-                Message::Data(data) => {
-                    if data.size() > 0.0 {
-                        match self.analysis_result.data_stack.last_mut() {
-                            Some(current_data) => current_data.push(data),
-                            None => log::error!("Data stack is empty when receiving data"),
-                        }
+                Message::Data(data) => match self.analysis_result.data_stack.last_mut() {
+                    Some(current_data) => current_data.upsert_child(data),
+                    None => log::error!("Data stack is empty when receiving data"),
+                },
+                Message::DirectoryProgress(name, size) => {
+                    match self.analysis_result.data_stack.last_mut() {
+                        Some(current_data) => current_data.set_child_size(name, size),
+                        None => log::error!("Data stack is empty when receiving data"),
                     }
                 }
                 Message::File(name, size) => match self.analysis_result.data_stack.last_mut() {

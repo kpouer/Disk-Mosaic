@@ -76,6 +76,45 @@ impl Data {
         }
     }
 
+    /// Replace the child having the same name or add it.
+    /// A child with a zero size removes the existing entry.
+    /// The color of a replaced child is kept so the treemap does not flicker.
+    pub fn upsert_child(&mut self, mut child: Data) {
+        let Kind::Dir(children) = &mut self.kind else {
+            error!("Invalid kind ({self:?})");
+            return;
+        };
+        match children.iter().position(|c| c.name == child.name) {
+            Some(index) if child.size == 0 => {
+                children.remove(index);
+            }
+            Some(index) => {
+                child.color = children[index].color;
+                children[index] = child;
+            }
+            None if child.size > 0 => children.push(child),
+            None => {}
+        }
+    }
+
+    /// Update the size of a child directory still being scanned, creating it if needed.
+    pub fn set_child_size(&mut self, name: String, size: u64) {
+        let Kind::Dir(children) = &mut self.kind else {
+            error!("Invalid kind ({self:?})");
+            return;
+        };
+        match children.iter_mut().find(|c| c.name == name) {
+            Some(child) => child.size = size,
+            None => children.push(Self {
+                name,
+                size,
+                kind: Kind::default(),
+                color: Self::next_color(),
+                ..Default::default()
+            }),
+        }
+    }
+
     pub fn name(&self) -> &str {
         &self.name
     }

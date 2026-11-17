@@ -5,7 +5,7 @@ use crate::util;
 use crate::util::PathBufToString;
 use log::{debug, info, warn};
 use rayon::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{DirEntry, ReadDir};
 use std::io::ErrorKind;
 use std::iter::Flatten;
@@ -14,8 +14,10 @@ use std::ops::Add;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::thread;
+use std::time::Duration;
 
 type DirectoryEntryIterator = Flatten<ReadDir>;
 
@@ -47,11 +49,66 @@ pub fn scan_directory_channel<T: ScanConfig>(
         return;
     }
     let scanner = Scanner::new(stopper, sender, &settings);
-    let file_count = AtomicU64::new(0);
-    let total_size = AtomicU64::new(0);
-    let small_files_count = AtomicU64::new(0);
-    let small_files_size = AtomicU64::new(0);
+    let counters = RootCounters::default();
     let big_file_threshold = settings.big_file_threshold();
+    // dropping this sender stops the progress reporter
+    let (done_tx, done_rx) = mpsc::channel::<()>();
+    thread::scope(|scope| {
+        let reporter = &scanner;
+        scope.spawn(move || reporter.report_progress(&done_rx));
+        scan_top_level(
+            path,
+            &scanner,
+            sender,
+            stopper,
+            big_file_threshold,
+            &counters,
+        );
+        drop(done_tx);
+    });
+    let small_count = counters.small_files_count.load(Ordering::Relaxed);
+    let small_size = counters.small_files_size.load(Ordering::Relaxed);
+    if small_size > 0 {
+        send_message(
+            sender,
+            Message::Data(Data::remaining(CountAndSize {
+                count: small_count,
+                size: small_size,
+            })),
+        );
+    }
+    send_message(
+        sender,
+        Message::DirectoryScanDone(ScanResult::new(
+            counters.file_count.load(Ordering::Relaxed) + small_count,
+            counters.total_size.load(Ordering::Relaxed) + small_size,
+        )),
+    );
+}
+
+/// Counters of the files found directly in the scanned root.
+#[derive(Default)]
+struct RootCounters {
+    file_count: AtomicU64,
+    total_size: AtomicU64,
+    small_files_count: AtomicU64,
+    small_files_size: AtomicU64,
+}
+
+fn scan_top_level<T: ScanConfig>(
+    path: &Path,
+    scanner: &Scanner<T>,
+    sender: &Sender<Message>,
+    stopper: &Arc<AtomicBool>,
+    big_file_threshold: u64,
+    counters: &RootCounters,
+) {
+    let RootCounters {
+        file_count,
+        total_size,
+        small_files_count,
+        small_files_size,
+    } = counters;
     Scanner::<T>::entry_iterator(path)
         .into_iter()
         .flatten()
@@ -63,9 +120,15 @@ pub fn scan_directory_channel<T: ScanConfig>(
             }
             match scanner.classify(&entry) {
                 Some(ScannedEntry::Dir(p)) => {
-                    if let Some(data) = scanner.scan_directory_recursive(&p)
-                        && data.size > 0
-                    {
+                    let name = p.name();
+                    let progress = scanner.progress.start(&name);
+                    let data = scanner.scan_directory_recursive(&p, &progress);
+                    // The lock is held while sending so that the reporter cannot send
+                    // a progress message for this directory after its final data.
+                    let mut running = scanner.progress.lock();
+                    running.remove(&name);
+                    if let Some(data) = data {
+                        // a zero size removes the provisional entry on the UI side
                         send_message(sender, Message::Data(data));
                     }
                 }
@@ -81,24 +144,27 @@ pub fn scan_directory_channel<T: ScanConfig>(
                 Some(ScannedEntry::File(_, _)) | None => {}
             }
         });
-    let small_count = small_files_count.load(Ordering::Relaxed);
-    let small_size = small_files_size.load(Ordering::Relaxed);
-    if small_size > 0 {
-        send_message(
-            sender,
-            Message::Data(Data::remaining(CountAndSize {
-                count: small_count,
-                size: small_size,
-            })),
-        );
+}
+
+/// Interval between two progress messages.
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
+
+/// Size scanned so far for each top-level directory being scanned.
+#[derive(Debug, Default)]
+struct TopLevelProgress {
+    running: Mutex<HashMap<String, Arc<AtomicU64>>>,
+}
+
+impl TopLevelProgress {
+    fn start(&self, name: &str) -> Arc<AtomicU64> {
+        let counter = Arc::new(AtomicU64::new(0));
+        self.lock().insert(name.to_string(), Arc::clone(&counter));
+        counter
     }
-    send_message(
-        sender,
-        Message::DirectoryScanDone(ScanResult::new(
-            file_count.load(Ordering::Relaxed) + small_count,
-            total_size.load(Ordering::Relaxed) + small_size,
-        )),
-    );
+
+    fn lock(&self) -> MutexGuard<'_, HashMap<String, Arc<AtomicU64>>> {
+        self.running.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 fn send_message(sender: &Sender<Message>, message: Message) -> bool {
@@ -128,6 +194,7 @@ where
     stopper: &'a Arc<AtomicBool>,
     sender: &'a Sender<Message>,
     settings: &'a T,
+    progress: TopLevelProgress,
     #[cfg(unix)]
     seen_inodes: Mutex<HashSet<FileId>>,
 }
@@ -141,8 +208,27 @@ where
             stopper,
             sender,
             settings,
+            progress: TopLevelProgress::default(),
             #[cfg(unix)]
             seen_inodes: Mutex::new(HashSet::new()),
+        }
+    }
+
+    /// Periodically send the provisional size of the top-level directory being scanned,
+    /// until `done` is disconnected.
+    fn report_progress(&self, done: &Receiver<()>) {
+        let mut last_sent: HashMap<String, u64> = HashMap::new();
+        while let Err(RecvTimeoutError::Timeout) = done.recv_timeout(PROGRESS_INTERVAL) {
+            let running = self.progress.lock();
+            for (name, counter) in running.iter() {
+                let size = counter.load(Ordering::Relaxed);
+                if size > 0 && last_sent.get(name) != Some(&size) {
+                    if !send_message(self.sender, Message::DirectoryProgress(name.clone(), size)) {
+                        return;
+                    }
+                    last_sent.insert(name.clone(), size);
+                }
+            }
         }
     }
 
@@ -185,7 +271,8 @@ where
         }
     }
 
-    fn scan_directory_recursive(&self, path: &Path) -> Option<Data> {
+    /// Scan a directory recursively, adding the size of the files found to `progress`.
+    fn scan_directory_recursive(&self, path: &Path, progress: &AtomicU64) -> Option<Data> {
         if self.stopper.load(Ordering::Relaxed) {
             return None;
         }
@@ -197,7 +284,7 @@ where
             return None;
         }
         let scanned_children = Self::entry_iterator(path)
-            .map(|entries| self.collect_children(entries))
+            .map(|entries| self.collect_children(entries, progress))
             .unwrap_or_default();
 
         let scan_result = scanned_children
@@ -208,6 +295,7 @@ where
                 Kind::SmallFiles(count) => Some(ScanResult::new(count, data.size)),
             })
             .reduce(ScanResult::default, |left, right| left + right);
+        progress.fetch_add(scan_result.size, Ordering::Relaxed);
         if scan_result.file_count != 0
             && let Err(e) = self.sender.send(Message::DirectoryScanDone(scan_result))
         {
@@ -231,7 +319,7 @@ where
         }
     }
 
-    fn collect_children<IT>(&self, entries: IT) -> Vec<Data>
+    fn collect_children<IT>(&self, entries: IT, progress: &AtomicU64) -> Vec<Data>
     where
         IT: Iterator<Item = DirEntry> + ParallelBridge + Send,
     {
@@ -240,7 +328,7 @@ where
         let (mut data, small_files) = entries
             .par_bridge()
             .fold(ChildrenAccumulator::default, |accumulator, entry| {
-                self.fold_children(big_file_threshold, accumulator, entry)
+                self.fold_children(big_file_threshold, progress, accumulator, entry)
             })
             .reduce(ChildrenAccumulator::default, merge_children_accumulators);
         if small_files.size > 0 {
@@ -253,6 +341,7 @@ where
     fn fold_children(
         &self,
         big_file_threshold: u64,
+        progress: &AtomicU64,
         (mut items, mut small_files): ChildrenAccumulator,
         entry: DirEntry,
     ) -> ChildrenAccumulator {
@@ -261,7 +350,9 @@ where
         }
 
         match self.classify(&entry) {
-            Some(ScannedEntry::Dir(path)) => items.extend(self.scan_directory_recursive(&path)),
+            Some(ScannedEntry::Dir(path)) => {
+                items.extend(self.scan_directory_recursive(&path, progress))
+            }
             Some(ScannedEntry::File(_, file_size)) if file_size < big_file_threshold => {
                 small_files.push(file_size)
             }

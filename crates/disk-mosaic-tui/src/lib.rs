@@ -25,7 +25,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
-use treemap::{Mappable, Rect, TreemapLayout};
+use treemap::{Rect, TreemapLayout};
 
 pub fn start(path: PathBuf, settings: Settings) -> Result<(), String> {
     if let Err(e) = TextUi::new(path, settings).run() {
@@ -130,13 +130,18 @@ impl TextUi {
         for message in rx.try_iter() {
             match message {
                 Message::Data(data) => {
-                    if data.size() > 0.0 {
-                        self.analysis_result
-                            .data_stack
-                            .last_mut()
-                            .unwrap()
-                            .push(data);
-                    }
+                    self.analysis_result
+                        .data_stack
+                        .last_mut()
+                        .unwrap()
+                        .upsert_child(data);
+                }
+                Message::DirectoryProgress(name, size) => {
+                    self.analysis_result
+                        .data_stack
+                        .last_mut()
+                        .unwrap()
+                        .set_child_size(name, size);
                 }
                 Message::File(name, size) => {
                     self.analysis_result
