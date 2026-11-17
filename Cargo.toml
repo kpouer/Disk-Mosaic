@@ -52,6 +52,7 @@ eframe = "0.37"
 home = "0.5.12"
 humansize = "2.1.3"
 log = "0.4"
+serde = "1.0"
 treemap = "0.3.2"
 
 [target.'cfg(windows)'.build-dependencies]

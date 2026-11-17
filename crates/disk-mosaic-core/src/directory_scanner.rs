@@ -366,8 +366,6 @@ where
     }
 }
 
-pub const BIG_FILE_THRESHOLD: u64 = 10000000;
-
 pub trait ScanConfig: Sync {
     fn big_file_threshold(&self) -> u64;
     fn is_path_ignored(&self, path: &Path) -> bool;

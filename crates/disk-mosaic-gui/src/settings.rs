@@ -1,5 +1,6 @@
 use crate::settings::ColorScheme::Egui;
-use disk_mosaic_core::directory_scanner::{BIG_FILE_THRESHOLD, ScanConfig};
+use disk_mosaic_core::directory_scanner::ScanConfig;
+use disk_mosaic_core::scan_settings::{BIG_FILE_THRESHOLD, ScanSettings};
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -15,7 +16,7 @@ pub(crate) struct Settings {
 
 impl ScanConfig for Settings {
     fn big_file_threshold(&self) -> u64 {
-        self.read().big_file_threshold
+        self.read().scan_settings.big_file_threshold
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
@@ -41,7 +42,7 @@ impl Settings {
 
     pub(crate) fn reset_big_file_threshold(&self) {
         let mut settings = self.write();
-        settings.big_file_threshold = BIG_FILE_THRESHOLD;
+        settings.scan_settings.big_file_threshold = BIG_FILE_THRESHOLD;
         settings.dirty = true;
     }
 
@@ -97,13 +98,8 @@ struct InnerSettings {
     dirty: bool,
     color_scheme: ColorScheme,
     theme: ThemePreference,
-    /// List of paths to ignore (might be cloud drives, etc.
-    ignored_path: Vec<PathBuf>,
-    /// Ignore common cloud folders like Dropbox, OneDrive, Google Drive, iCloud, etc.
-    #[serde(default = "InnerSettings::default_ignore_cloud_mounts")]
-    ignore_cloud_mounts: bool,
-    /// Threshold for big files (in bytes). Files smaller than this will be displayed as a single block.
-    big_file_threshold: u64,
+    #[serde(flatten)]
+    scan_settings: ScanSettings,
 }
 
 impl Default for InnerSettings {
@@ -115,9 +111,7 @@ impl Default for InnerSettings {
                 dirty: false,
                 color_scheme: Egui,
                 theme: ThemePreference::System,
-                ignored_path: Vec::new(),
-                ignore_cloud_mounts: true,
-                big_file_threshold: BIG_FILE_THRESHOLD,
+                scan_settings: ScanSettings::default(),
             })
     }
 }
@@ -129,17 +123,8 @@ impl InnerSettings {
     }
 
     pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
-        if self
-            .ignored_path
-            .iter()
-            .any(|ignored_path| ignored_path == path)
-        {
-            return true;
-        }
-        if self.ignore_cloud_mounts && Self::is_common_cloud_path(path) {
-            return true;
-        }
-        false
+        self.scan_settings.is_explicitly_ignored(path)
+            || (self.scan_settings.ignore_cloud_mounts && Self::is_common_cloud_path(path))
     }
 
     pub(crate) fn save(&self) -> Result<(), std::io::Error> {
@@ -153,10 +138,6 @@ impl InnerSettings {
             }
         }
         Ok(())
-    }
-
-    const fn default_ignore_cloud_mounts() -> bool {
-        true
     }
 
     fn settings_folder() -> Option<PathBuf> {
@@ -277,7 +258,7 @@ impl PartialEq for SettingsColorSchemeMut<'_> {
 }
 
 macro_rules! settings_mut_guard {
-    ($name:ident, $field:ident, $target:ty) => {
+    ($name:ident, $($field:ident).+, $target:ty) => {
         pub(crate) struct $name<'a> {
             settings: RwLockWriteGuard<'a, InnerSettings>,
         }
@@ -286,23 +267,35 @@ macro_rules! settings_mut_guard {
             type Target = $target;
 
             fn deref(&self) -> &Self::Target {
-                &self.settings.$field
+                &self.settings.$($field).+
             }
         }
 
         impl DerefMut for $name<'_> {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.settings.dirty = true;
-                &mut self.settings.$field
+                &mut self.settings.$($field).+
             }
         }
     };
 }
 
 settings_mut_guard!(SettingsColorSchemeMut, color_scheme, ColorScheme);
-settings_mut_guard!(SettingsIgnoredPathMut, ignored_path, Vec<PathBuf>);
-settings_mut_guard!(SettingsBigFileThresholdMut, big_file_threshold, u64);
-settings_mut_guard!(SettingsIgnoreCloudMountsMut, ignore_cloud_mounts, bool);
+settings_mut_guard!(
+    SettingsIgnoredPathMut,
+    scan_settings.ignored_path,
+    Vec<PathBuf>
+);
+settings_mut_guard!(
+    SettingsBigFileThresholdMut,
+    scan_settings.big_file_threshold,
+    u64
+);
+settings_mut_guard!(
+    SettingsIgnoreCloudMountsMut,
+    scan_settings.ignore_cloud_mounts,
+    bool
+);
 
 #[cfg(test)]
 mod tests {
@@ -313,9 +306,7 @@ mod tests {
             dirty: false,
             color_scheme: ColorScheme::Egui,
             theme: ThemePreference::System,
-            ignored_path: Vec::new(),
-            ignore_cloud_mounts: true,
-            big_file_threshold: BIG_FILE_THRESHOLD,
+            scan_settings: ScanSettings::default(),
         }
     }
 
@@ -413,9 +404,14 @@ mod tests {
     fn common_cloud_path_detection() {
         let Some(home) = home::home_dir() else { return };
         for name in ["Dropbox", "OneDrive", "Google Drive", "Box", "MEGA"] {
-            assert!(InnerSettings::is_common_cloud_path(&home.join(name)), "{name}");
+            assert!(
+                InnerSettings::is_common_cloud_path(&home.join(name)),
+                "{name}"
+            );
         }
-        assert!(!InnerSettings::is_common_cloud_path(&home.join("Documents")));
+        assert!(!InnerSettings::is_common_cloud_path(
+            &home.join("Documents")
+        ));
         assert!(!InnerSettings::is_common_cloud_path(&home));
     }
 
@@ -425,7 +421,9 @@ mod tests {
         let Some(home) = home::home_dir() else { return };
         let p = home.join("Library/Mobile Documents/com~apple~CloudDocs/x");
         assert!(InnerSettings::is_common_cloud_path(&p));
-        assert!(!InnerSettings::is_common_cloud_path(&home.join("Library/Other")));
+        assert!(!InnerSettings::is_common_cloud_path(
+            &home.join("Library/Other")
+        ));
     }
 
     #[test]
@@ -433,23 +431,24 @@ mod tests {
         let mut i = inner();
         i.theme = ThemePreference::Dark;
         i.color_scheme = ColorScheme::Solarized;
-        i.ignored_path.push(PathBuf::from("/z"));
-        i.big_file_threshold = 123;
+        i.scan_settings.ignored_path.push(PathBuf::from("/z"));
+        i.scan_settings.big_file_threshold = 123;
         i.dirty = true;
         let json = serde_json::to_string(&i).unwrap();
         let back: InnerSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(back.theme, ThemePreference::Dark);
         assert_eq!(back.color_scheme, ColorScheme::Solarized);
-        assert_eq!(back.ignored_path, vec![PathBuf::from("/z")]);
-        assert_eq!(back.big_file_threshold, 123);
+        assert_eq!(back.scan_settings.ignored_path, vec![PathBuf::from("/z")]);
+        assert_eq!(back.scan_settings.big_file_threshold, 123);
         assert!(!back.dirty, "dirty is skipped by serde");
     }
 
     #[test]
     fn missing_ignore_cloud_mounts_defaults_to_true() {
-        let json = r#"{"color_scheme":"Egui","theme":"System","ignored_path":[],"big_file_threshold":10}"#;
+        let json =
+            r#"{"color_scheme":"Egui","theme":"System","ignored_path":[],"big_file_threshold":10}"#;
         let i: InnerSettings = serde_json::from_str(json).unwrap();
-        assert!(i.ignore_cloud_mounts);
+        assert!(i.scan_settings.ignore_cloud_mounts);
     }
 
     #[test]

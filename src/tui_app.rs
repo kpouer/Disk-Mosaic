@@ -4,7 +4,6 @@ compile_error!("tui app is text only, do not activate gui feature. Use bin DiskM
 use clap::Parser;
 use disk_mosaic_tui::settings::Settings;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -43,8 +42,6 @@ fn main() -> Result<(), String> {
         .map(|f| f.canonicalize())
         .filter_map(Result::ok)
         .collect::<Vec<_>>();
-    let settings = Settings {
-        ignored_path: Arc::new(ignored_path),
-    };
+    let settings = Settings::new(ignored_path);
     disk_mosaic_tui::start(path, settings)
 }
