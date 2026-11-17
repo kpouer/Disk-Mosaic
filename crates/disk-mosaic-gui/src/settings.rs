@@ -258,7 +258,7 @@ impl PartialEq for SettingsColorSchemeMut<'_> {
 }
 
 macro_rules! settings_mut_guard {
-    ($name:ident, $($field:ident).+, $target:ty) => {
+    ($name:ident, $($field:ident).+ => $target:ty) => {
         pub(crate) struct $name<'a> {
             settings: RwLockWriteGuard<'a, InnerSettings>,
         }
@@ -280,22 +280,10 @@ macro_rules! settings_mut_guard {
     };
 }
 
-settings_mut_guard!(SettingsColorSchemeMut, color_scheme, ColorScheme);
-settings_mut_guard!(
-    SettingsIgnoredPathMut,
-    scan_settings.ignored_path,
-    Vec<PathBuf>
-);
-settings_mut_guard!(
-    SettingsBigFileThresholdMut,
-    scan_settings.big_file_threshold,
-    u64
-);
-settings_mut_guard!(
-    SettingsIgnoreCloudMountsMut,
-    scan_settings.ignore_cloud_mounts,
-    bool
-);
+settings_mut_guard!(SettingsColorSchemeMut, color_scheme => ColorScheme);
+settings_mut_guard!(SettingsIgnoredPathMut, scan_settings.ignored_path => Vec<PathBuf>);
+settings_mut_guard!(SettingsBigFileThresholdMut, scan_settings.big_file_threshold => u64);
+settings_mut_guard!(SettingsIgnoreCloudMountsMut, scan_settings.ignore_cloud_mounts => bool);
 
 #[cfg(test)]
 mod tests {
