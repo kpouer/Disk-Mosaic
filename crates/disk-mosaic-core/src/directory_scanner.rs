@@ -182,7 +182,7 @@ pub(crate) enum ScannedEntry {
     File(PathBuf, u64),
 }
 
-pub type Dev = u64;
+type Dev = u64;
 type Ino = u64;
 type FileId = (Dev, Ino);
 
@@ -256,26 +256,29 @@ where
         let metadata = entry
             .metadata()
             .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
-            .ok()?;
-
-        #[cfg(unix)]
-        {
-            let dev = metadata.dev();
-            if self.settings.ignore_different_device() && self.device.is_some_and(|d| d != dev) {
-                return None;
-            }
-        }
+            .ok();
 
         if file_type.is_dir() {
+            #[cfg(unix)]
+            if metadata
+                .as_ref()
+                .is_some_and(|m| self.is_other_device(m.dev()))
+            {
+                return None;
+            }
             if self.is_path_ignored(&path) {
                 info!("Ignoring path: {path:?}");
                 return None;
             }
             Some(ScannedEntry::Dir(path))
         } else if file_type.is_file() {
+            let metadata = metadata?;
             #[cfg(unix)]
             {
                 let dev = metadata.dev();
+                if self.is_other_device(dev) {
+                    return None;
+                }
                 let ino = metadata.ino();
                 if !self.seen_inodes.lock().unwrap().insert((dev, ino)) {
                     // already seen
@@ -287,6 +290,12 @@ where
         } else {
             None
         }
+    }
+
+    /// Whether `dev` differs from the scan root device while the user asked to stay on it.
+    #[cfg(unix)]
+    fn is_other_device(&self, dev: Dev) -> bool {
+        self.settings.ignore_different_device() && self.device.is_some_and(|d| d != dev)
     }
 
     /// Scan a directory recursively, adding the size of the files found to `progress`.
@@ -466,7 +475,10 @@ mod tests {
                 _ => {}
             }
         }
-        (result.expect("scan should end with DirectoryScanDone"), dirs)
+        (
+            result.expect("scan should end with DirectoryScanDone"),
+            dirs,
+        )
     }
 
     #[test]
@@ -487,5 +499,40 @@ mod tests {
         assert_eq!(filtered.file_count, unfiltered.file_count);
         assert_eq!(filtered.size, unfiltered.size);
         assert_eq!(filtered_dirs, unfiltered_dirs);
+    }
+
+    #[test]
+    fn entries_on_another_device_are_skipped() {
+        let root =
+            std::env::temp_dir().join(format!("disk-mosaic-test-dev-{}", std::process::id()));
+        fs::create_dir_all(root.join("sub")).unwrap();
+        fs::write(root.join("a.txt"), [0u8; 10]).unwrap();
+
+        let classify_all = |ignore: bool, fake_device: bool| {
+            let (tx, _rx) = mpsc::channel();
+            let stopper = Arc::new(AtomicBool::new(false));
+            let config = TestConfig {
+                ignore_different_device: ignore,
+            };
+            let mut scanner = Scanner::new(&root, &stopper, &tx, &config);
+            if fake_device {
+                // Pretend the scan started on a device that none of the entries live on.
+                scanner.device = scanner.device.map(|d| d.wrapping_add(1));
+            }
+            fs::read_dir(&root)
+                .unwrap()
+                .flatten()
+                .filter_map(|e| scanner.classify(&e))
+                .count()
+        };
+
+        let same_device = classify_all(true, false);
+        let other_device_ignored = classify_all(true, true);
+        let other_device_allowed = classify_all(false, true);
+        fs::remove_dir_all(&root).unwrap();
+
+        assert_eq!(same_device, 2);
+        assert_eq!(other_device_ignored, 0);
+        assert_eq!(other_device_allowed, 2);
     }
 }
