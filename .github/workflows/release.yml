@@ -24,11 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install GUI dependencies for eframe/egui and clipboard support
-#      - name: Install dependencies
-#        run: |
-#          sudo apt-get update
-#          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libwayland-dev
+      # Install GUI dependencies for eframe/egui, rfd and clipboard support
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libwayland-dev
 
       - name: Cargo cache
         uses: actions/cache@v4
@@ -38,9 +38,22 @@ jobs:
             ./target
           key: test-cargo-registry-${{ hashFiles('Cargo.lock') }}
 
-      - name: Run tests
-        # Git dependencies (crawler/imagepipe) are handled automatically by cargo
-        run: cargo test --verbose
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      # gui and tui are mutually exclusive features, so each is checked separately.
+      # A plain `cargo test` at the root only covers the root package (no tests).
+      - name: Clippy (gui)
+        run: cargo clippy --workspace --all-targets --features gui -- -D warnings
+
+      - name: Clippy (tui)
+        run: cargo clippy --workspace --all-targets --features tui -- -D warnings
+
+      - name: Run tests (gui)
+        run: cargo test --workspace --verbose --features gui
+
+      - name: Run tests (tui)
+        run: cargo test --workspace --verbose --features tui
   build:
     strategy:
       fail-fast: false
@@ -92,11 +105,12 @@ jobs:
 
       - name: Run build (Linux/Windows)
         if: runner.os != 'macOS'
-        run: cargo build --release --verbose --target $TARGET
+        # The DiskMosaic binary has `required-features = ["gui"]`: without it nothing is built.
+        run: cargo build --release --verbose --target $TARGET --features gui
 
       - name: Run bundle (macOS)
         if: runner.os == 'macOS'
-        run: cargo bundle --release --target $TARGET
+        run: cargo bundle --release --target $TARGET --features gui
 
       - name: Install zip (Windows)
         if: runner.os == 'Windows'
@@ -177,8 +191,9 @@ jobs:
             echo "Wix configuration not found, initializing defaults..."
             cargo wix init
           fi
-          # Git deps are handled automatically
-          cargo wix --nocapture
+          # cargo-wix cannot enable features itself: build the gui binary first
+          cargo build --release --features gui
+          cargo wix --no-build --nocapture
 
       - name: Archive MSI
         uses: actions/upload-artifact@v4
@@ -209,7 +224,7 @@ jobs:
         run: cargo install cargo-deb
 
       - name: Build Debian package
-        run: cargo deb
+        run: cargo deb --features gui
 
       - name: Archive Debian package
         uses: actions/upload-artifact@v4
