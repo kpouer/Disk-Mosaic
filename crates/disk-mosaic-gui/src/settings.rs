@@ -165,17 +165,6 @@ impl InnerSettings {
     }
 
     fn is_common_cloud_path(path: &Path) -> bool {
-        // Linux absolute mount points that often include cloud/special mounts
-        #[cfg(target_os = "linux")]
-        {
-            if path.starts_with("/run/user")
-                || path.starts_with("/media")
-                || path.starts_with("/mnt")
-                || path.starts_with("/snap")
-            {
-                return true;
-            }
-        }
         // On macOS and Windows, many cloud folders are under HOME. We check the first component
         // after HOME against a small set of known names without allocating vectors.
         if let Some(home) = home::home_dir()
@@ -411,6 +400,22 @@ mod tests {
             &home.join("Documents")
         ));
         assert!(!InnerSettings::is_common_cloud_path(&home));
+    }
+
+    /// Scanning a disk mounted under these folders must not ignore its whole content.
+    #[test]
+    fn mount_folders_are_not_cloud_paths() {
+        for path in [
+            "/media/user/usb/photos",
+            "/mnt/data/backup",
+            "/run/user/1000/doc",
+            "/snap/core/current",
+        ] {
+            assert!(
+                !InnerSettings::is_common_cloud_path(Path::new(path)),
+                "{path}"
+            );
+        }
     }
 
     #[cfg(target_os = "macos")]
