@@ -1,7 +1,7 @@
 //! Native macOS menu bar built with `muda`.
 
-use crate::menu::MenuAction;
 use crate::about_dialog::{APP_NAME, AUTHOR_CREDITS};
+use crate::menu::MenuAction;
 use muda::accelerator::{Accelerator, Code, Modifiers};
 use muda::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 
@@ -55,11 +55,7 @@ impl NativeMenu {
             true,
             Some(Accelerator::new(Modifiers::META, Code::KeyO)),
         );
-        let settings = MenuItem::new(
-            "Settings",
-            true,
-            None,
-        );
+        let settings = MenuItem::new("Settings", true, None);
         let file_menu = Submenu::new("File", true);
         file_menu.append_items(&[
             &select_disk,
