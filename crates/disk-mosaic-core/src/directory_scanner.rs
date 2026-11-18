@@ -5,7 +5,7 @@ use crate::util;
 use crate::util::PathBufToString;
 use log::{debug, info, warn};
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::{DirEntry, ReadDir};
 use std::io::ErrorKind;
 use std::iter::Flatten;
@@ -196,7 +196,7 @@ where
     settings: &'a T,
     progress: TopLevelProgress,
     #[cfg(unix)]
-    seen_inodes: Mutex<HashSet<FileId>>,
+    seen_inodes: Mutex<std::collections::HashSet<FileId>>,
 }
 
 impl<'a, T> Scanner<'a, T>
@@ -210,7 +210,7 @@ where
             settings,
             progress: TopLevelProgress::default(),
             #[cfg(unix)]
-            seen_inodes: Mutex::new(HashSet::new()),
+            seen_inodes: Mutex::new(std::collections::HashSet::new()),
         }
     }
 

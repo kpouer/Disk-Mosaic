@@ -20,7 +20,7 @@ pub(crate) fn get_file_size(path: &Path, metadata: &Metadata) -> u64 {
 /// compression and sparse files, and is 0 for dehydrated cloud placeholders (OneDrive, ...).
 /// If that call fails, it falls back to the logical file size.
 #[cfg(windows)]
-fn get_file_size(path: &Path, metadata: &Metadata) -> u64 {
+pub(crate) fn get_file_size(path: &Path, metadata: &Metadata) -> u64 {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Foundation::{GetLastError, NO_ERROR};
     use windows_sys::Win32::Storage::FileSystem::{GetCompressedFileSizeW, INVALID_FILE_SIZE};
