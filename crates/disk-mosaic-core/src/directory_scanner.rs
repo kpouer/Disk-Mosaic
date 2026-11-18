@@ -16,8 +16,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-use std::thread;
 use std::time::Duration;
+use std::{fs, thread};
 
 type DirectoryEntryIterator = Flatten<ReadDir>;
 
@@ -48,7 +48,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
         debug!("Receiver dropped {e}");
         return;
     }
-    let scanner = Scanner::new(stopper, sender, &settings);
+    let scanner = Scanner::new(path, stopper, sender, &settings);
     let counters = RootCounters::default();
     let big_file_threshold = settings.big_file_threshold();
     // dropping this sender stops the progress reporter
@@ -182,7 +182,7 @@ pub(crate) enum ScannedEntry {
     File(PathBuf, u64),
 }
 
-type Dev = u64;
+pub type Dev = u64;
 type Ino = u64;
 type FileId = (Dev, Ino);
 
@@ -197,13 +197,21 @@ where
     progress: TopLevelProgress,
     #[cfg(unix)]
     seen_inodes: Mutex<std::collections::HashSet<FileId>>,
+    /// The device where the directory being scanned resides.
+    #[cfg(unix)]
+    device: Option<Dev>,
 }
 
 impl<'a, T> Scanner<'a, T>
 where
     T: ScanConfig,
 {
-    fn new(stopper: &'a Arc<AtomicBool>, sender: &'a Sender<Message>, settings: &'a T) -> Self {
+    fn new(
+        path: &Path,
+        stopper: &'a Arc<AtomicBool>,
+        sender: &'a Sender<Message>,
+        settings: &'a T,
+    ) -> Self {
         Self {
             stopper,
             sender,
@@ -211,6 +219,8 @@ where
             progress: TopLevelProgress::default(),
             #[cfg(unix)]
             seen_inodes: Mutex::new(std::collections::HashSet::new()),
+            #[cfg(unix)]
+            device: fs::metadata(path).map(|m| m.dev()).ok(),
         }
     }
 
@@ -242,19 +252,27 @@ where
             .inspect_err(|e| warn!("Error getting file type: {e}"))
             .ok()?;
 
+        let path = entry.path();
+        let metadata = entry
+            .metadata()
+            .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
+            .ok()?;
+
+        #[cfg(unix)]
+        {
+            let dev = metadata.dev();
+            if self.settings.ignore_different_device() && self.device.is_some_and(|d| d != dev) {
+                return None;
+            }
+        }
+
         if file_type.is_dir() {
-            let path = entry.path();
             if self.is_path_ignored(&path) {
                 info!("Ignoring path: {path:?}");
                 return None;
             }
             Some(ScannedEntry::Dir(path))
         } else if file_type.is_file() {
-            let path = entry.path();
-            let metadata = entry
-                .metadata()
-                .inspect_err(|e| debug!("Failed to get metadata for {path:?}: {e}"))
-                .ok()?;
             #[cfg(unix)]
             {
                 let dev = metadata.dev();
@@ -369,6 +387,8 @@ where
 pub trait ScanConfig: Sync {
     fn big_file_threshold(&self) -> u64;
     fn is_path_ignored(&self, path: &Path) -> bool;
+    #[cfg(unix)]
+    fn ignore_different_device(&self) -> bool;
 }
 
 #[derive(Default)]
@@ -400,4 +420,72 @@ fn merge_children_accumulators(
 ) -> ChildrenAccumulator {
     left_children.extend(right_children);
     (left_children, left_count_and_size + right_count_and_size)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    struct TestConfig {
+        ignore_different_device: bool,
+    }
+
+    impl ScanConfig for TestConfig {
+        fn big_file_threshold(&self) -> u64 {
+            0
+        }
+
+        fn is_path_ignored(&self, _path: &Path) -> bool {
+            false
+        }
+
+        fn ignore_different_device(&self) -> bool {
+            self.ignore_different_device
+        }
+    }
+
+    /// Returns the final result and the number of top-level directories reported.
+    fn scan(path: &Path, ignore_different_device: bool) -> (ScanResult, usize) {
+        let (tx, rx) = mpsc::channel();
+        let stopper = Arc::new(AtomicBool::new(false));
+        scan_directory_channel(
+            path,
+            &tx,
+            &stopper,
+            TestConfig {
+                ignore_different_device,
+            },
+        );
+        drop(tx);
+        let mut result = None;
+        let mut dirs = 0;
+        for message in rx {
+            match message {
+                Message::DirectoryScanDone(r) => result = Some(r),
+                Message::Data(_) => dirs += 1,
+                _ => {}
+            }
+        }
+        (result.expect("scan should end with DirectoryScanDone"), dirs)
+    }
+
+    #[test]
+    fn same_device_files_are_scanned_with_ignore_different_device() {
+        let root = std::env::temp_dir().join(format!("disk-mosaic-test-{}", std::process::id()));
+        let sub = root.join("sub");
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(root.join("a.txt"), [0u8; 10]).unwrap();
+        fs::write(sub.join("b.txt"), [0u8; 20]).unwrap();
+
+        let (filtered, filtered_dirs) = scan(&root, true);
+        let (unfiltered, unfiltered_dirs) = scan(&root, false);
+        fs::remove_dir_all(&root).unwrap();
+
+        // Everything lives on the scanned device: nothing may be filtered out.
+        assert_eq!(filtered.file_count, 1);
+        assert_eq!(filtered_dirs, 1);
+        assert_eq!(filtered.file_count, unfiltered.file_count);
+        assert_eq!(filtered.size, unfiltered.size);
+        assert_eq!(filtered_dirs, unfiltered_dirs);
+    }
 }

@@ -22,6 +22,11 @@ impl ScanConfig for Settings {
     fn is_path_ignored(&self, path: &Path) -> bool {
         self.read().is_path_ignored(path)
     }
+
+    #[cfg(unix)]
+    fn ignore_different_device(&self) -> bool {
+        self.read().ignore_different_device()
+    }
 }
 
 impl Settings {
@@ -125,6 +130,11 @@ impl InnerSettings {
     pub(crate) fn is_path_ignored(&self, path: &Path) -> bool {
         self.scan_settings.is_explicitly_ignored(path)
             || (self.scan_settings.ignore_cloud_mounts && Self::is_common_cloud_path(path))
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn ignore_different_device(&self) -> bool {
+        self.scan_settings.ignore_different_device
     }
 
     pub(crate) fn save(&self) -> Result<(), std::io::Error> {

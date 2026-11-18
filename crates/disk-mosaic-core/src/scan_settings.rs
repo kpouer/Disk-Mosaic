@@ -8,6 +8,9 @@ pub struct ScanSettings {
     /// List of paths to ignore (might be cloud drives, etc.
     #[serde(default)]
     pub ignored_path: Vec<PathBuf>,
+    /// if this parameter is true then the scan will continue only in the same device where the scan was started
+    #[serde(default = "default_ignore_different_device")]
+    pub ignore_different_device: bool,
     /// Ignore common cloud folders like Dropbox, OneDrive, Google Drive, iCloud, etc.
     #[serde(default = "default_ignore_cloud_mounts")]
     pub ignore_cloud_mounts: bool,
@@ -20,6 +23,7 @@ impl Default for ScanSettings {
     fn default() -> Self {
         Self {
             ignored_path: Vec::new(),
+            ignore_different_device: default_ignore_different_device(),
             ignore_cloud_mounts: default_ignore_cloud_mounts(),
             big_file_threshold: default_big_file_threshold(),
         }
@@ -31,6 +35,10 @@ impl ScanSettings {
     pub fn is_explicitly_ignored(&self, path: &Path) -> bool {
         self.ignored_path.iter().any(|ignored| ignored == path)
     }
+}
+
+const fn default_ignore_different_device() -> bool {
+    true
 }
 
 const fn default_ignore_cloud_mounts() -> bool {

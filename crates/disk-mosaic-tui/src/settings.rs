@@ -34,6 +34,11 @@ impl ScanConfig for Settings {
     fn is_path_ignored(&self, path: &Path) -> bool {
         self.scan_settings.is_explicitly_ignored(path)
     }
+
+    #[cfg(unix)]
+    fn ignore_different_device(&self) -> bool {
+        self.scan_settings.ignore_different_device
+    }
 }
 
 #[cfg(test)]
