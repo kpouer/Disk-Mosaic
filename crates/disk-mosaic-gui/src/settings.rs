@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, LazyLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use strum_macros::{Display, EnumIter, EnumString};
 
 #[derive(Default, Debug, Clone)]
@@ -121,6 +121,8 @@ impl Default for InnerSettings {
     }
 }
 
+static HOME: LazyLock<Option<PathBuf>> = LazyLock::new(home::home_dir);
+
 impl InnerSettings {
     pub(crate) fn init(&self, ctx: &egui::Context) {
         ctx.set_theme(self.theme);
@@ -167,8 +169,8 @@ impl InnerSettings {
     fn is_common_cloud_path(path: &Path) -> bool {
         // On macOS and Windows, many cloud folders are under HOME. We check the first component
         // after HOME against a small set of known names without allocating vectors.
-        if let Some(home) = home::home_dir()
-            && let Ok(stripped) = path.strip_prefix(&home)
+        if let Some(home) = HOME.as_deref()
+            && let Ok(stripped) = path.strip_prefix(home)
         {
             // iCloud special case is under ~/Library/Mobile Documents/com~apple~CloudDocs
             #[cfg(target_os = "macos")]
