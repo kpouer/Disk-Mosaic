@@ -17,6 +17,10 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 use std::time::Duration;
 
+/// Maximum number of scan messages processed per frame while the scan is running,
+/// so that a flood of messages cannot freeze the UI.
+const MAX_MESSAGES_PER_FRAME: usize = 1000;
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum AnalyzerUpdate {
     Running,
@@ -66,7 +70,7 @@ impl Analyzer {
     }
 
     pub(crate) fn show(&mut self, ui: &mut Ui) -> AnalyzerUpdate {
-        self.receive_data();
+        let scan_finished = self.poll_scan();
         let top_panel_result = self.show_top_panel(ui);
 
         if top_panel_result == AnalyzerUpdate::GoBack {
@@ -80,16 +84,25 @@ impl Analyzer {
         });
         ui.ctx().request_repaint_after(Duration::from_millis(60));
 
-        if self.handle.is_finished() {
+        if scan_finished {
             AnalyzerUpdate::Finished
         } else {
             AnalyzerUpdate::Running
         }
     }
 
-    fn receive_data(&mut self) {
-        let mut count = 1000;
-        for message in self.rx.try_iter() {
+    fn poll_scan(&mut self) -> bool {
+        let scan_finished = self.handle.is_finished();
+        if scan_finished {
+            self.receive_data(usize::MAX);
+        } else {
+            self.receive_data(MAX_MESSAGES_PER_FRAME);
+        }
+        scan_finished
+    }
+
+    fn receive_data(&mut self, max_messages: usize) {
+        for message in self.rx.try_iter().take(max_messages) {
             match message {
                 Message::DirectoryScanStart(d) => {
                     self.scanning = d;
@@ -110,10 +123,6 @@ impl Analyzer {
                     Some(current_data) => current_data.push(Data::new_file(name, size)),
                     None => log::error!("Data stack is empty when receiving data"),
                 },
-            }
-            count -= 1;
-            if count == 0 {
-                break;
             }
         }
     }
@@ -146,5 +155,39 @@ impl Analyzer {
         });
 
         update_status
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use disk_mosaic_core::data::Kind;
+    use std::fs;
+
+    /// More top-level directories than messages processed per frame: the final results must
+    /// all be received even if the scan finishes before the UI drained the channel.
+    #[test]
+    fn all_messages_are_processed_when_scan_finishes() {
+        const DIRS: usize = MAX_MESSAGES_PER_FRAME + 500;
+        let root =
+            std::env::temp_dir().join(format!("disk-mosaic-analyzer-{}", std::process::id()));
+        for i in 0..DIRS {
+            let dir = root.join(format!("dir{i}"));
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("file"), b"x").unwrap();
+        }
+
+        let mut analyzer = Analyzer::new(root.clone(), Settings::default());
+        while !analyzer.handle.is_finished() {
+            thread::sleep(Duration::from_millis(10));
+        }
+        // the scan is over before the first poll, as when the UI lags behind
+        assert!(analyzer.poll_scan());
+        fs::remove_dir_all(&root).unwrap();
+
+        let Kind::Dir(children) = &analyzer.analysis_result.data_stack[0].kind else {
+            panic!("root must be a directory");
+        };
+        assert_eq!(children.len(), DIRS);
     }
 }
