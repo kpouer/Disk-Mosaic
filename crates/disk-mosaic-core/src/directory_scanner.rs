@@ -280,7 +280,8 @@ where
                     return None;
                 }
                 let ino = metadata.ino();
-                if !self.seen_inodes.lock().unwrap().insert((dev, ino)) {
+                let nlink = metadata.nlink();
+                if nlink > 1 && !self.seen_inodes.lock().unwrap().insert((dev, ino)) {
                     // already seen
                     return None;
                 }
