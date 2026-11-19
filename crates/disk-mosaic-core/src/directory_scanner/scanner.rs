@@ -10,23 +10,25 @@ use crate::util;
 use crate::util::PathBufToString;
 use log::{debug, info, warn};
 use rayon::iter::{IntoParallelRefIterator, ParallelBridge, ParallelIterator};
-use std::fs;
 use std::fs::DirEntry;
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
 
 pub(crate) enum ScannedEntry {
     Dir(PathBuf),
     File(PathBuf, u64),
 }
 
+#[cfg(unix)]
 type Dev = u64;
+#[cfg(unix)]
 type Ino = u64;
+#[cfg(unix)]
 type FileId = (Dev, Ino);
 
 #[derive(Debug)]
@@ -39,7 +41,7 @@ where
     settings: &'a T,
     pub(crate) progress: TopLevelProgress,
     #[cfg(unix)]
-    seen_inodes: Mutex<std::collections::HashSet<FileId>>,
+    seen_inodes: std::sync::Mutex<std::collections::HashSet<FileId>>,
     /// The device where the directory being scanned resides.
     #[cfg(unix)]
     pub(crate) device: Option<Dev>,
@@ -61,9 +63,9 @@ where
             settings,
             progress: TopLevelProgress::default(),
             #[cfg(unix)]
-            seen_inodes: Mutex::new(std::collections::HashSet::new()),
+            seen_inodes: std::sync::Mutex::new(std::collections::HashSet::new()),
             #[cfg(unix)]
-            device: fs::metadata(path).map(|m| m.dev()).ok(),
+            device: std::fs::metadata(path).map(|m| m.dev()).ok(),
         }
     }
 
