@@ -51,6 +51,8 @@ impl<'a, T> Scanner<'a, T>
 where
     T: ScanConfig,
 {
+    // `path` is only used on unix, to record the device of the scanned directory.
+    #[cfg_attr(not(unix), allow(unused_variables))]
     pub(crate) fn new(
         path: &Path,
         stopper: &'a Arc<AtomicBool>,
