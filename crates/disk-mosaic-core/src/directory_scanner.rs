@@ -227,7 +227,7 @@ where
     /// Periodically send the provisional size of the top-level directory being scanned,
     /// until `done` is disconnected.
     fn report_progress(&self, done: &Receiver<()>) {
-        let mut last_sent: HashMap<String, u64> = HashMap::new();
+        let mut last_sent = HashMap::new();
         while let Err(RecvTimeoutError::Timeout) = done.recv_timeout(PROGRESS_INTERVAL) {
             let running = self.progress.lock();
             for (name, counter) in running.iter() {
