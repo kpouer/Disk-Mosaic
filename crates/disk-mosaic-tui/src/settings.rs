@@ -1,4 +1,4 @@
-use disk_mosaic_core::directory_scanner::ScanConfig;
+use disk_mosaic_core::directory_scanner::config::ScanConfig;
 use disk_mosaic_core::scan_settings::ScanSettings;
 use std::path::{Path, PathBuf};
 

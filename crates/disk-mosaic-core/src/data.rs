@@ -1,6 +1,6 @@
 use crate::color;
 use crate::color::Color;
-use crate::directory_scanner::CountAndSize;
+use crate::directory_scanner::counters::CountAndSize;
 use crate::util::PathBufToString;
 use log::error;
 use std::path::Path;

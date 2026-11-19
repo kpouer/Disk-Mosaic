@@ -1,5 +1,5 @@
 use crate::settings::ColorScheme::Egui;
-use disk_mosaic_core::directory_scanner::ScanConfig;
+use disk_mosaic_core::directory_scanner::config::ScanConfig;
 use disk_mosaic_core::scan_settings::{BIG_FILE_THRESHOLD, ScanSettings};
 use log::info;
 use serde::{Deserialize, Serialize};
