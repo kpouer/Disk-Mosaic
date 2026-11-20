@@ -70,8 +70,8 @@ impl<'a> SettingsDialog<'a> {
                         }
                         ui.end_row();
                     });
-                // Edit a copy: the folder picker blocks, and holding the settings lock
-                // meanwhile would freeze the scan thread that reads the settings.
+                // Edit a copy: the folder picker blocks, and holding the write lock
+                // meanwhile would deadlock any other settings read on the UI thread.
                 let mut ignored_paths = self.settings.ignored_paths();
                 let modified = SearchFolderPanel::with_title(
                     "ignored_folders",
