@@ -10,14 +10,21 @@ pub(crate) struct ResultView {
     analysis_result: AnalysisResult,
     about_open: bool,
     settings: Settings,
+    /// The scan was stopped by the user: sizes are partial.
+    interrupted: bool,
 }
 
 impl ResultView {
-    pub(crate) const fn new(analysis_result: AnalysisResult, settings: Settings) -> Self {
+    pub(crate) const fn new(
+        analysis_result: AnalysisResult,
+        settings: Settings,
+        interrupted: bool,
+    ) -> Self {
         Self {
             analysis_result,
             about_open: false,
             settings,
+            interrupted,
         }
     }
 
@@ -29,6 +36,12 @@ impl ResultView {
                     go_back = true;
                 }
                 PathBar::new(&mut self.analysis_result).show(ui);
+                if self.interrupted {
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        "Scan interrupted: results are partial",
+                    );
+                }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     AboutDialog::new(&mut self.about_open).show_button(ui);

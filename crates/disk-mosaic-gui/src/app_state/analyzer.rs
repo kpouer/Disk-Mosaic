@@ -69,6 +69,11 @@ impl Analyzer {
         }
     }
 
+    /// Whether the user asked to stop the scan, in which case the results are partial.
+    pub(crate) fn was_stopped(&self) -> bool {
+        self.stopper.load(Ordering::Relaxed)
+    }
+
     pub(crate) fn show(&mut self, ui: &mut Ui) -> AnalyzerUpdate {
         let scan_finished = self.poll_scan();
         let top_panel_result = self.show_top_panel(ui);

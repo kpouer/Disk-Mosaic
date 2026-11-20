@@ -102,9 +102,13 @@ impl eframe::App for DiskAnalyzerApp {
             AppState::Analyzing(analyzer) => match analyzer.show(ui) {
                 AnalyzerUpdate::Finished => {
                     info!("Analysis finished, transitioning to ResultView");
+                    let interrupted = analyzer.was_stopped();
                     let analysis_result = std::mem::take(&mut analyzer.analysis_result);
-                    self.state =
-                        AppState::Analyzed(ResultView::new(analysis_result, self.settings.clone()));
+                    self.state = AppState::Analyzed(ResultView::new(
+                        analysis_result,
+                        self.settings.clone(),
+                        interrupted,
+                    ));
                 }
                 AnalyzerUpdate::GoBack => {
                     info!("Back requested from Analyzer, transitioning to SelectTarget");
