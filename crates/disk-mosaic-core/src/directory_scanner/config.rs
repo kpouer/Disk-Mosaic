@@ -1,3 +1,4 @@
+use crate::scan_settings::ScanSettings;
 use std::path::Path;
 
 pub trait ScanConfig: Sync {
@@ -5,4 +6,5 @@ pub trait ScanConfig: Sync {
     fn is_path_ignored(&self, path: &Path) -> bool;
     #[cfg(unix)]
     fn ignore_different_device(&self) -> bool;
+    fn scan_settings(&self) -> ScanSettings;
 }

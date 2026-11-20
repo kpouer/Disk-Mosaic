@@ -1,11 +1,11 @@
 use crate::data::{Data, Kind};
 use crate::directory_scanner::DirectoryEntryIterator;
-use crate::directory_scanner::config::ScanConfig;
 use crate::directory_scanner::counters::CountAndSize;
 use crate::directory_scanner::exclusion::is_excluded;
 use crate::directory_scanner::progress::TopLevelProgress;
 use crate::model::message::Message;
 use crate::model::scan_result::ScanResult;
+use crate::scan_settings::ScanSettings;
 use crate::util;
 use crate::util::PathBufToString;
 use log::{debug, info, warn};
@@ -32,13 +32,10 @@ type Ino = u64;
 type FileId = (Dev, Ino);
 
 #[derive(Debug)]
-pub struct Scanner<'a, T>
-where
-    T: ScanConfig,
-{
+pub struct Scanner<'a> {
     stopper: &'a Arc<AtomicBool>,
     pub(crate) sender: &'a Sender<Message>,
-    settings: &'a T,
+    scan_settings: &'a ScanSettings,
     pub(crate) progress: TopLevelProgress,
     #[cfg(unix)]
     seen_inodes: std::sync::Mutex<std::collections::HashSet<FileId>>,
@@ -47,22 +44,19 @@ where
     pub(crate) device: Option<Dev>,
 }
 
-impl<'a, T> Scanner<'a, T>
-where
-    T: ScanConfig,
-{
+impl<'a> Scanner<'a> {
     // `path` is only used on unix, to record the device of the scanned directory.
     #[cfg_attr(not(unix), allow(unused_variables))]
     pub(crate) fn new(
         path: &Path,
         stopper: &'a Arc<AtomicBool>,
         sender: &'a Sender<Message>,
-        settings: &'a T,
+        scan_settings: &'a ScanSettings,
     ) -> Self {
         Self {
             stopper,
             sender,
-            settings,
+            scan_settings,
             progress: TopLevelProgress::default(),
             #[cfg(unix)]
             seen_inodes: std::sync::Mutex::new(std::collections::HashSet::new()),
@@ -72,7 +66,7 @@ where
     }
 
     fn is_path_ignored(&self, path: &Path) -> bool {
-        self.settings.is_path_ignored(path) || is_excluded(path)
+        self.scan_settings.is_explicitly_ignored(path) || is_excluded(path)
     }
 
     pub(crate) fn classify(&self, entry: &DirEntry) -> Option<ScannedEntry> {
@@ -125,7 +119,7 @@ where
     /// Whether `dev` differs from the scan root device while the user asked to stay on it.
     #[cfg(unix)]
     fn is_other_device(&self, dev: Dev) -> bool {
-        self.settings.ignore_different_device() && self.device.is_some_and(|d| d != dev)
+        self.scan_settings.ignore_different_device && self.device.is_some_and(|d| d != dev)
     }
 
     /// Scan a directory recursively, adding the size of the files found to `progress`.
@@ -184,12 +178,15 @@ where
     where
         IT: Iterator<Item = DirEntry> + ParallelBridge + Send,
     {
-        let big_file_threshold = self.settings.big_file_threshold();
-
         let (mut data, small_files) = entries
             .par_bridge()
             .fold(ChildrenAccumulator::default, |accumulator, entry| {
-                self.fold_children(big_file_threshold, progress, accumulator, entry)
+                self.fold_children(
+                    self.scan_settings.big_file_threshold,
+                    progress,
+                    accumulator,
+                    entry,
+                )
             })
             .reduce(ChildrenAccumulator::default, merge_children_accumulators);
         if small_files.size > 0 {

@@ -27,6 +27,10 @@ impl ScanConfig for Settings {
     fn ignore_different_device(&self) -> bool {
         self.read().ignore_different_device()
     }
+
+    fn scan_settings(&self) -> ScanSettings {
+        self.read().scan_settings.clone()
+    }
 }
 
 impl Settings {

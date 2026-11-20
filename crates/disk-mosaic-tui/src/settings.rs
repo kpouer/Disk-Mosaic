@@ -39,6 +39,10 @@ impl ScanConfig for Settings {
     fn ignore_different_device(&self) -> bool {
         self.scan_settings.ignore_different_device
     }
+
+    fn scan_settings(&self) -> ScanSettings {
+        self.scan_settings.clone()
+    }
 }
 
 #[cfg(test)]

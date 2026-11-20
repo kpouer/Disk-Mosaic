@@ -8,6 +8,7 @@ use crossterm::{
 };
 use disk_mosaic_core::analysis_result::AnalysisResult;
 use disk_mosaic_core::data::{Data, Kind};
+use disk_mosaic_core::directory_scanner::config::ScanConfig;
 use disk_mosaic_core::directory_scanner::scan_directory_channel;
 use disk_mosaic_core::model::message::Message;
 use humansize::DECIMAL;
@@ -91,9 +92,9 @@ impl TextUi {
         let stopper_clone = Arc::clone(&stopper);
         let path_clone = self.analysis_result.root_path.clone();
 
-        let settings = self.settings.clone();
+        let scan_settings = self.settings.scan_settings();
         std::thread::spawn(move || {
-            scan_directory_channel(&path_clone, &tx, &stopper_clone, settings);
+            scan_directory_channel(&path_clone, &tx, &stopper_clone, scan_settings);
         });
 
         let mut last_tick = Instant::now();

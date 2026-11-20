@@ -1,4 +1,3 @@
-use crate::directory_scanner::config::ScanConfig;
 use crate::directory_scanner::scanner::Scanner;
 use crate::model::message::Message;
 use log::debug;
@@ -37,10 +36,7 @@ pub fn send_message(sender: &Sender<Message>, message: Message) -> bool {
     true
 }
 
-impl<'a, T> Scanner<'a, T>
-where
-    T: ScanConfig,
-{
+impl<'a> Scanner<'a> {
     /// Periodically send the provisional size of the top-level directory being scanned,
     /// until `done` is disconnected.
     pub(super) fn report_progress(&self, done: &Receiver<()>) {

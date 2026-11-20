@@ -1,8 +1,8 @@
 use crate::data::Data;
 use crate::model::message::Message;
 use crate::model::scan_result::ScanResult;
+use crate::scan_settings::ScanSettings;
 use crate::util::PathBufToString;
-use config::ScanConfig;
 use counters::{CountAndSize, RootCounters};
 use log::debug;
 use rayon::prelude::*;
@@ -23,11 +23,11 @@ mod scanner;
 
 type DirectoryEntryIterator = Flatten<ReadDir>;
 
-pub fn scan_directory_channel<T: ScanConfig>(
+pub fn scan_directory_channel(
     path: &Path,
     sender: &Sender<Message>,
     stopper: &Arc<AtomicBool>,
-    settings: T,
+    scan_settings: ScanSettings,
 ) {
     if let Err(e) = sender.send(Message::DirectoryScanStart(
         path.to_string_lossy().to_string(),
@@ -35,9 +35,8 @@ pub fn scan_directory_channel<T: ScanConfig>(
         debug!("Receiver dropped {e}");
         return;
     }
-    let scanner = Scanner::new(path, stopper, sender, &settings);
+    let scanner = Scanner::new(path, stopper, sender, &scan_settings);
     let counters = RootCounters::default();
-    let big_file_threshold = settings.big_file_threshold();
     // dropping this sender stops the progress reporter
     let (done_tx, done_rx) = mpsc::channel::<()>();
     thread::scope(|scope| {
@@ -48,7 +47,7 @@ pub fn scan_directory_channel<T: ScanConfig>(
             &scanner,
             sender,
             stopper,
-            big_file_threshold,
+            scan_settings.big_file_threshold,
             &counters,
         );
         drop(done_tx);
@@ -73,9 +72,9 @@ pub fn scan_directory_channel<T: ScanConfig>(
     );
 }
 
-fn scan_top_level<T: ScanConfig>(
+fn scan_top_level(
     path: &Path,
-    scanner: &Scanner<T>,
+    scanner: &Scanner,
     sender: &Sender<Message>,
     stopper: &Arc<AtomicBool>,
     big_file_threshold: u64,
@@ -87,7 +86,7 @@ fn scan_top_level<T: ScanConfig>(
         small_files_count,
         small_files_size,
     } = counters;
-    Scanner::<T>::entry_iterator(path)
+    Scanner::entry_iterator(path)
         .into_iter()
         .flatten()
         .par_bridge()
@@ -129,24 +128,6 @@ mod tests {
     use super::*;
     use std::fs;
 
-    struct TestConfig {
-        ignore_different_device: bool,
-    }
-
-    impl ScanConfig for TestConfig {
-        fn big_file_threshold(&self) -> u64 {
-            0
-        }
-
-        fn is_path_ignored(&self, _path: &Path) -> bool {
-            false
-        }
-
-        fn ignore_different_device(&self) -> bool {
-            self.ignore_different_device
-        }
-    }
-
     /// Returns the final result and the number of top-level directories reported.
     fn scan(path: &Path, ignore_different_device: bool) -> (ScanResult, usize) {
         let (tx, rx) = mpsc::channel();
@@ -155,8 +136,9 @@ mod tests {
             path,
             &tx,
             &stopper,
-            TestConfig {
+            ScanSettings {
                 ignore_different_device,
+                ..ScanSettings::default()
             },
         );
         drop(tx);
@@ -208,7 +190,14 @@ mod tests {
             let config = TestConfig {
                 ignore_different_device: ignore,
             };
-            let mut scanner = Scanner::new(&root, &stopper, &tx, &config);
+            let mut scanner = Scanner::new(
+                &root,
+                &stopper,
+                &tx,
+                &ScanSettings {
+                    ignore_different_device: ignore,
+                },
+            );
             if fake_device {
                 // Pretend the scan started on a device that none of the entries live on.
                 scanner.device = scanner.device.map(|d| d.wrapping_add(1));
