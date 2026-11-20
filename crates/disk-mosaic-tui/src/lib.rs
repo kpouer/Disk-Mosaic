@@ -258,13 +258,17 @@ impl TextUi {
         let full_path = names.join("/");
         let max_width = area.width as usize;
 
-        if full_path.len() > max_width && names.len() > 1 {
+        if full_path.chars().count() > max_width && names.len() > 1 {
             let first = names[0];
             let last = names.last().unwrap();
             let mut truncated = format!("{}/.../{}", first, last);
-            if truncated.len() > max_width {
-                // Si même ça c'est trop long, on tronque juste la fin
-                truncated.truncate(max_width.saturating_sub(3));
+            if truncated.chars().count() > max_width {
+                // Si même ça c'est trop long, on tronque juste la fin (par caractères,
+                // pas par octets, pour ne pas couper un caractère UTF-8 en deux)
+                truncated = truncated
+                    .chars()
+                    .take(max_width.saturating_sub(3))
+                    .collect();
                 truncated.push_str("...");
             }
             truncated
@@ -411,6 +415,30 @@ impl TextUi {
 
                 f.render_widget(paragraph, child_area);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ui_with_stack(names: &[&str]) -> TextUi {
+        let mut ui = TextUi::new(PathBuf::from("/"), Settings::default());
+        ui.analysis_result.data_stack = names
+            .iter()
+            .map(|n| Data::new_directory(std::path::Path::new(n)))
+            .collect();
+        ui
+    }
+
+    #[test]
+    fn path_bar_truncation_does_not_split_multibyte_chars() {
+        let ui = ui_with_stack(&["économie", "données", "répertoire-très-long-éàü"]);
+        for width in 0..40 {
+            let area = RatatuiRect::new(0, 0, width, 1);
+            let bar = ui.build_path_bar_path(&area);
+            assert!(bar.chars().count() <= (width as usize).max(3) + 3);
         }
     }
 }
