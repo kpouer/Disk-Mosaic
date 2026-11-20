@@ -61,6 +61,17 @@ impl Settings {
         }
     }
 
+    /// A copy of the ignored paths, so that no lock is held while the user edits them.
+    pub(crate) fn ignored_paths(&self) -> Vec<PathBuf> {
+        self.read().scan_settings.ignored_path.clone()
+    }
+
+    pub(crate) fn set_ignored_paths(&self, paths: Vec<PathBuf>) {
+        let mut settings = self.write();
+        settings.scan_settings.ignored_path = paths;
+        settings.dirty = true;
+    }
+
     pub(crate) fn ignored_paths_mut(&self) -> SettingsIgnoredPathMut<'_> {
         SettingsIgnoredPathMut {
             settings: self.write(),

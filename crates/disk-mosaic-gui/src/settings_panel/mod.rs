@@ -70,17 +70,20 @@ impl<'a> SettingsDialog<'a> {
                         }
                         ui.end_row();
                     });
+                // Edit a copy: the folder picker blocks, and holding the settings lock
+                // meanwhile would freeze the scan thread that reads the settings.
+                let mut ignored_paths = self.settings.ignored_paths();
                 let modified = SearchFolderPanel::with_title(
                     "ignored_folders",
                     "Ignored folders",
                     HashListPanel::new(
-                        &mut *self.settings.ignored_paths_mut(),
+                        &mut ignored_paths,
                         &mut self.settings_context.ignored_folders_selection,
                     ),
                 )
                 .show(ui);
                 if modified {
-                    self.settings.set_dirty(true);
+                    self.settings.set_ignored_paths(ignored_paths);
                 }
             });
     }
