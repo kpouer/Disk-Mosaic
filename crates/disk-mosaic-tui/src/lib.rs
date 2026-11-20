@@ -166,6 +166,7 @@ impl TextUi {
     fn handle_keys(&mut self, stopper: &Arc<AtomicBool>, timeout: Duration) -> Result<bool, Error> {
         if event::poll(timeout)?
             && let Event::Key(key) = event::read()?
+            && key.is_press()
         {
             match key.code {
                 KeyCode::Char('q') => {
