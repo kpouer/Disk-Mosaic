@@ -58,7 +58,6 @@ impl DiskAnalyzerApp {
                 info!("Open settings requested from menu");
                 self.settings_context.open();
             }
-            #[cfg(not(target_os = "macos"))]
             MenuAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
         }
         ctx.request_repaint();

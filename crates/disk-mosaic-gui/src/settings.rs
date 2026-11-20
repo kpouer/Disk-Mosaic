@@ -157,7 +157,10 @@ impl InnerSettings {
         {
             std::fs::create_dir_all(settings_folder)?;
             if let Some(settings_file) = Self::settings_file() {
-                serde_json::to_writer(File::create(settings_file)?, self)?;
+                // Write then rename, so a crash cannot leave a truncated settings file.
+                let tmp_file = settings_file.with_extension("json.tmp");
+                serde_json::to_writer(File::create(&tmp_file)?, self)?;
+                std::fs::rename(tmp_file, settings_file)?;
             }
         }
         Ok(())

@@ -4,7 +4,6 @@
 pub(crate) enum MenuAction {
     SelectDisk,
     Settings,
-    #[cfg(not(target_os = "macos"))]
     Quit,
 }
 

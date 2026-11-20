@@ -11,6 +11,7 @@ pub(crate) struct NativeMenu {
     events: std::sync::mpsc::Receiver<MenuEvent>,
     select_disk_id: muda::MenuId,
     settings_id: muda::MenuId,
+    quit_id: muda::MenuId,
 }
 
 impl std::fmt::Debug for NativeMenu {
@@ -29,6 +30,13 @@ impl NativeMenu {
         }));
         let menu = Menu::new();
 
+        // A custom item instead of `PredefinedMenuItem::quit`: the native quit terminates the
+        // process without going through the window close, so the settings would not be saved.
+        let quit = MenuItem::new(
+            "Quit Disk Mosaic",
+            true,
+            Some(Accelerator::new(Modifiers::META, Code::KeyQ)),
+        );
         let app_menu = Submenu::new("Disk Mosaic", true);
         app_menu.append_items(&[
             &PredefinedMenuItem::about(
@@ -47,7 +55,7 @@ impl NativeMenu {
             &PredefinedMenuItem::hide_others(None),
             &PredefinedMenuItem::show_all(None),
             &PredefinedMenuItem::separator(),
-            &PredefinedMenuItem::quit(None),
+            &quit,
         ])?;
 
         let select_disk = MenuItem::new(
@@ -80,6 +88,7 @@ impl NativeMenu {
         Ok(Self {
             select_disk_id: select_disk.id().clone(),
             settings_id: settings.id().clone(),
+            quit_id: quit.id().clone(),
             _menu: menu,
             events,
         })
@@ -93,6 +102,8 @@ impl NativeMenu {
                 action = Some(MenuAction::SelectDisk);
             } else if event.id == self.settings_id {
                 action = Some(MenuAction::Settings);
+            } else if event.id == self.quit_id {
+                action = Some(MenuAction::Quit);
             }
         }
         action
