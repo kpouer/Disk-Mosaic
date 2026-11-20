@@ -159,7 +159,9 @@ impl<T> HashListPanel<'_, T> {
     }
 
     fn remove_selection(&mut self) {
-        if let Some(selection) = *self.selection {
+        if let Some(selection) = self.selection.take()
+            && selection < self.vec.len()
+        {
             self.vec.remove(selection);
             self.dirty = true;
         }
